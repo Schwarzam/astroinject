@@ -31,13 +31,16 @@ class Connection:
             sys.exit(1)
 
     def _check_connection(self):
-        if self._connection is None:
-            self.connect()
+        self.connect()
 
     def create_schema(self):
         self._check_connection()
-        self._cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {self._schema}")
-        self._connection.commit()
+        try:
+            self._cursor.execute(f"""CREATE SCHEMA IF NOT EXISTS "{self._schema}" """)
+            self._connection.commit()
+        except Exception as e:
+            logging.error(f"{e}")
+            sys.exit(1)
 
     def execute(self, query):
         self._check_connection()
@@ -66,7 +69,7 @@ class Connection:
         self._check_connection()
 
         res = self.execute(f"""
-            CREATE INDEX "{self._tablename}_field" ON {self._schema}.{self._tablename} ("{field_col}");
+            CREATE INDEX "{self._tablename}_field" ON "{self._schema}"."{self._tablename}" ("{field_col}");
         """)
 
         if res == False:
@@ -76,7 +79,7 @@ class Connection:
         self._check_connection()
 
         res = self.execute(f"""
-            ALTER TABLE {self._schema}.{self._tablename} ADD PRIMARY KEY ("{pkey_col}");
+            ALTER TABLE "{self._schema}"."{self._tablename}" ADD PRIMARY KEY ("{pkey_col}");
         """)
 
         if res == False:
@@ -87,7 +90,7 @@ class Connection:
         self._check_connection()
 
         res = self.execute(f"""
-            UPDATE {self._schema}.{self._tablename} SET "{col}" = replace("ID", '{pattern}', '{replacement}');
+            UPDATE "{self._schema}"."{self._tablename}" SET "{col}" = replace("ID", '{pattern}', '{replacement}');
         """)
 
         if res == False:

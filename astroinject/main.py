@@ -68,47 +68,44 @@ operations: [
     for key, operation in enumerate(config["operations"]):
         
         if operation["name"] == "find_pattern":
-            logging.info(f"Searching for pattern {operation['pattern']}")
 
-            filtered_args = funcs.filter_args(funcs.find_files_with_pattern, operation)
-            files = funcs.find_files_with_pattern(**filtered_args)
+            if 'filters' in operation:
+                files = {}
+                for filter in operation['filters']:
+                    filtered_args = funcs.filter_args(funcs.find_files_with_pattern, operation)
+                    filtered_args['pattern'] = filtered_args['pattern'].format(filter = filter)
+                    logging.info(f"Searching for pattern {filtered_args['pattern']}")
+                    files[filter] = funcs.find_files_with_pattern(**filtered_args)
+                    logging.info(f"Found {len(files[filter])} files with pattern {operation['pattern']}")
+
+            else:
+                filtered_args = funcs.filter_args(funcs.find_files_with_pattern, operation)
+
+                logging.info(f"Searching for pattern {filtered_args['pattern']}")
+                files = funcs.find_files_with_pattern(**filtered_args)
             
-            logging.info(f"Found {len(files)} files with pattern {operation['pattern']}")
+                logging.info(f"Found {len(files)} files with pattern {operation['pattern']}")
         
         elif operation["name"] == "insert_files":
-        # TODO: 
+            if isinstance(files, dict):
+                for filter in files:
+                    if len(files[filter]) == 0:
+                        logging.error(f"No files found for filter {filter}")
+                        continue
 
-            if len(files) == 0:
-                logging.error("No files found to insert")
-                continue
+                    logging.info(f"Inserting {len(files[filter])} tables into database for filter {filter}")
+                    
+                    if "{filter}" in config["database"]["tablename"]:
+                        conn._tablename = config["database"]["tablename"].format(filter = operation['filters_names'][filter].lower())
+                    
+                    print(conn._tablename, conn._schema)
+                    funcs.inject_files_procedure(files[filter], conn, operation)
 
-            logging.info(f"Inserting {len(files)} tables into database")
-
-            for key, file in enumerate(files):
-                filtered_args = funcs.filter_args(funcs.process_file_to_dataframe, operation)
-                df = funcs.process_file_to_dataframe(file, **filtered_args)
-                
-                if df is False:
-                    #TODO: handle error, file could not be opened
+            else:
+                if len(files) == 0:
+                    logging.error("No files found to insert")
                     continue
 
-                res = conn.inject(df)
+                logging.info(f"Inserting {len(files)} tables into database")
                 
-                if res is False:
-                    logging.error(f"Error injecting file {file}")
-                    continue
-                
-                if key == 0:
-                    logging.info(f"Creating keys on {conn._tablename} {conn._schema}")
-
-                    filtered_args = funcs.filter_args(conn.apply_pkey, operation)
-                    conn.apply_pkey(**filtered_args)
-                     
-                    filtered_args = funcs.filter_args(conn.apply_coords_index, operation)
-                    conn.apply_coords_index(**filtered_args)
-
-                    filtered_args = funcs.filter_args(conn.apply_field_index, operation)
-                    conn.apply_field_index(**filtered_args)
-
-                logging.info(f"File {os.path.basename(file)} injected successfully")
-
+                funcs.inject_files_procedure(files, conn, operation)

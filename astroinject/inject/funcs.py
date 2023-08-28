@@ -2,6 +2,7 @@ import os
 import logging
 from astropy.table import Table
 import re
+import pandas as pd
 
 # Filtering the dictionary to match the function parameters
 def filter_args(func, args_dict):
@@ -15,6 +16,7 @@ def process_file_to_dataframe(
             delcolumns = [],
             addnullcols = [],
             fillna = -99,
+            col_pattern_replace = [],
             check_for_null=True
         ):
         
@@ -48,9 +50,45 @@ def process_file_to_dataframe(
         if check_for_null:
             if df.isnull().values.any():
                 df = df.fillna(fillna)
+        
+        if col_pattern_replace:
+            for col in col_pattern_replace:
+                try:
+                    df[col["name"]] = df[col["name"]].str.replace(col["pattern"], col["replacement"])
+                except Exception as e:
+                    logging.debug(f"Error replacing pattern {col} {e}")
 
         return df 
-     
+
+def inject_files_procedure(files, conn, operation):
+    for key, file in enumerate(files):
+        filtered_args = filter_args(process_file_to_dataframe, operation)
+        df = process_file_to_dataframe(file, **filtered_args)
+        
+        if df is False:
+            #TODO: handle error, file could not be opened
+            continue
+
+        res = conn.inject(df)
+        
+        if res is False:
+            logging.error(f"Error injecting file {os.path.basename(file)}")
+            continue
+        
+        if key == 0:
+            logging.info(f"Creating keys on {conn._tablename} {conn._schema}")
+
+            filtered_args = filter_args(conn.apply_pkey, operation)
+            conn.apply_pkey(**filtered_args)
+             
+            filtered_args = filter_args(conn.apply_coords_index, operation)
+            conn.apply_coords_index(**filtered_args)
+
+            filtered_args = filter_args(conn.apply_field_index, operation)
+            conn.apply_field_index(**filtered_args)
+
+        logging.info(f"File {os.path.basename(file)} injected successfully")
+
 
 def find_files_with_pattern(folder, pattern):
     files = os.popen(f"""find {folder} -name "{pattern}" """).read()
