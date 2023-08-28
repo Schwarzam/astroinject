@@ -9,3 +9,4 @@ astroinject.egg-info/entry_points.txt
 astroinject.egg-info/top_level.txt
 astroinject/inject/__init__.py
 astroinject/inject/conn.py
+astroinject/inject/funcs.py
