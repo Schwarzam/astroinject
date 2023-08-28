@@ -1,0 +1,2 @@
+[console_scripts]
+astroinject = astroinject.main:main
