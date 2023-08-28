@@ -4,6 +4,8 @@ import logging
 import sys
 import sqlalchemy
 
+import pandas as pd
+from astroinject.inject.funcs import *
 from psycopg2 import OperationalError
 
 class Connection:
@@ -47,7 +49,7 @@ class Connection:
             logging.error(f"{e}")
             return False 
     
-    def apply_coords_index(self, ra_col, dec_col):
+    def apply_coords_index(self, ra_col="RA", dec_col="DEC"):
         self._check_connection()
 
         res = self.execute(f"""
@@ -70,11 +72,11 @@ class Connection:
         if res == False:
             logging.error(f"Failed to create field index on {self._tablename} {self._schema}")
     
-    def apply_pkey(self, col = 'ID'):
+    def apply_pkey(self, pkey_col = 'ID'):
         self._check_connection()
 
         res = self.execute(f"""
-            ALTER TABLE {self._schema}.{self._tablename} ADD PRIMARY KEY ("{col}");
+            ALTER TABLE {self._schema}.{self._tablename} ADD PRIMARY KEY ("{pkey_col}");
         """)
 
         if res == False:
@@ -106,8 +108,10 @@ class Connection:
             )
             return True
         except Exception:
-            logging.error(f"Error injecting table. ")
+            logging.debug(f"Error injecting table. ")
             return False
+
+       
 
     def map_table(self):
         self._check_connection()
