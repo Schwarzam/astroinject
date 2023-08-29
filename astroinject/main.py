@@ -12,6 +12,8 @@ import os
 parser = argparse.ArgumentParser(description='Inject data into database')
 parser.add_argument('-C' ,'--config', type=str, default=None, help='Configuration file')
 parser.add_argument('-dd', '--getconfig', action='store_true', help='Get configuration file example')
+parser.add_argument('-u', '--user', type=str, default=None, help='Database user')
+parser.add_argument('-p', '--password', type=str, default=None, help='Database password')
 
 logging.basicConfig(format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging.INFO)
 
@@ -44,12 +46,15 @@ operations: [
     with open(args.config, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     
+    if args.user is not None:
+        config["database"]["user"] = args.user
+    if args.password is not None:
+        config["database"]["password"] = args.password
+
     conn = inconn.Connection(config["database"])
     conn.connect()
     
     logging.info("Connected to database")
-    
-    # TODO: handle config file operations
     
     if not "operations" in config:
         logging.error("No operations found in config file")
@@ -62,7 +67,9 @@ operations: [
     if len(config["operations"]) == 0:
         logging.error("Operations empty in config file.")
         sys.exit(1)
-    
+   
+            
+
     files = []
     for key, operation in enumerate(config["operations"]):
         
