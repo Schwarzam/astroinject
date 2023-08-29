@@ -60,19 +60,49 @@ def process_file_to_dataframe(
 
         return df 
 
-def inject_files_procedure(files, conn, operation):
+def write_checkpoint(filename, config):
+    filename = os.path.basename(filename)
+    if "checkpoint" in config:
+        f = open(config["checkpoint"], "w")
+        f.write(filename + "\n")
+        f.close()
+
+def is_file_in_checkpoint(filename, config):
+    filename = os.path.basename(filename)
+    if "checkpoint" in config:
+        if os.path.exists(config["checkpoint"]):
+            f = open(config["checkpoint"], "r")
+            lines = f.readlines()
+            f.close()
+            if filename in lines:
+                return True
+    return False
+
+def write_error(msg, config):
+    if "error" in config:
+        f = open(config["error"], "a")
+        f.write(msg + "\n")
+        f.close()
+
+def inject_files_procedure(files, conn, operation, config):
     for key, file in enumerate(files):
+        if is_file_in_checkpoint(file, config):
+            logging.info(f"File {os.path.basename(file)} already injected")
+            continue
+
         filtered_args = filter_args(process_file_to_dataframe, operation)
         df = process_file_to_dataframe(file, **filtered_args)
         
         if df is False:
-            #TODO: handle error, file could not be opened
+            logging.error(f"Error opening file {os.path.basename(file)}")   
+            write_error(f"Error opening file {os.path.basename(file)}", config)
             continue
 
         res = conn.inject(df)
         
         if res is False:
             logging.error(f"Error injecting file {os.path.basename(file)}")
+            write_error(f"Error injecting file {os.path.basename(file)}", config)
             continue
         
         if key == 0:
@@ -86,7 +116,8 @@ def inject_files_procedure(files, conn, operation):
 
             filtered_args = filter_args(conn.apply_field_index, operation)
             conn.apply_field_index(**filtered_args)
-
+        
+        write_checkpoint(file, config)
         logging.info(f"File {os.path.basename(file)} injected successfully")
 
 

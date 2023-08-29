@@ -51,7 +51,6 @@ operations: [
     
     # TODO: handle config file operations
     
-    print(config["operations"])
     if not "operations" in config:
         logging.error("No operations found in config file")
         sys.exit(1)
@@ -98,8 +97,7 @@ operations: [
                     if "{filter}" in config["database"]["tablename"]:
                         conn._tablename = config["database"]["tablename"].format(filter = operation['filters_names'][filter].lower())
                     
-                    print(conn._tablename, conn._schema)
-                    funcs.inject_files_procedure(files[filter], conn, operation)
+                    funcs.inject_files_procedure(files[filter], conn, operation, config)
 
             else:
                 if len(files) == 0:
@@ -107,5 +105,4 @@ operations: [
                     continue
 
                 logging.info(f"Inserting {len(files)} tables into database")
-                
                 funcs.inject_files_procedure(files, conn, operation)
