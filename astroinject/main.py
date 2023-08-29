@@ -1,3 +1,16 @@
+"""
+AstroInject Script
+==================
+
+Description
+-----------
+A script to manage data injection into a PostgreSQL database for astronomical data.
+
+Author: Gustavo Schwarz
+github.com/schwarzam/astroinject
+
+"""
+
 import logging
 import astroinject.inject.conn as inconn
 import astroinject.inject.funcs as funcs

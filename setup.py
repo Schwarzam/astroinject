@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='astroinject',
-    version='0.2',
+    version='0.21',
     author="Gustavo Schwarz",
     author_email="gustavo.b.schwarz@gmail.com",
     packages=find_packages(),
