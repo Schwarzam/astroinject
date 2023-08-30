@@ -27,11 +27,22 @@ parser.add_argument('-C' ,'--config', type=str, default=None, help='Configuratio
 parser.add_argument('-dd', '--getconfig', action='store_true', help='Get configuration file example')
 parser.add_argument('-u', '--user', type=str, default=None, help='Database user')
 parser.add_argument('-p', '--password', type=str, default=None, help='Database password')
+parser.add_argument('-b', '--backup', nargs=3, type=str, default=None, help='Backup database - schema - path-of-backup')
+parser.add_argument('-r', '--restore', nargs=2, type=str, default=None, help='Restore database - path-of-backup')
 
 logging.basicConfig(format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging.INFO)
 
 def main():
     args = parser.parse_args()
+
+    if args.backup is not None:
+        funcs.do_backup(args.backup[0], args.backup[1], args.backup[2])
+        return
+
+    if args.restore is not None:
+        funcs.do_restore(args.restore[0], args.restore[1])
+        return 
+
 
     if args.getconfig:
         print(""" 

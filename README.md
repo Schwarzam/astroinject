@@ -70,6 +70,21 @@ files = funcs.find_files_with_pattern("/path/to/files", "*.fits")
 funcs.inject_files_procedure(files, connection, {"_format": "fits"}, config_object)
 ```
 
+### Backup and restore
+
+It's possible to create backups with astroinject. 
+
+```bash
+astroinject --backup {database} {schema} {outfile}
+```
+
+Then to restore:
+
+```bash
+astroinject --restore {database} {infile}
+```
+
+
 ## Documentation
 
 For detailed documentation, please refer to the `docs/` directory.

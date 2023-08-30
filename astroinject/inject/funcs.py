@@ -335,3 +335,79 @@ def fits_to_dataframe(tablename):
         t[col] = str_columns[col]
 
     return t
+
+def do_backup(database, schema, outfile):
+    """
+    Backs up a database schema to a file.
+
+    Parameters
+    ----------
+    database : str
+        Name of the database to be backed up.
+    schema : str
+        Name of the schema to be backed up.
+    outfile : str
+        Path of the file to write the backup to.
+
+    Returns
+    -------
+    None
+
+    Side Effects
+    ------------
+    - Writes to log files using the logging module.
+    - Writes to error and checkpoint files defined in the `config` object.
+    - Writes the backup to the file specified by `outfile`.
+
+    Examples
+    --------
+    >>> do_backup("postgres", "astroinject", "backup.sql")
+
+    Notes
+    -----
+    - The function uses the `pg_dump` command-line utility to perform the backup, so this function is specific to Unix-like systems.
+
+    """
+    logging.info(f"Backing up database {database} schema {schema} to {outfile}")
+    code = os.system(f" /usr/local/pgsql/bin/pg_dump --schema={schema} --column-inserts {database} -b | gzip > {outfile}")
+    if code == 0:
+        logging.info(f"Backup complete")
+    else:
+        logging.error(f"Backup failed")
+
+def do_restore(database, infile):
+    """
+    Restores a database from a backup file.
+
+    Parameters
+    ----------
+    database : str
+        Name of the database to be restored.
+    infile : str
+        Path of the file containing the backup to be restored.
+
+    Returns
+    -------
+    None
+
+    Side Effects
+    ------------
+    - Writes to log files using the logging module.
+    - Writes to error and checkpoint files defined in the `config` object.
+    - Restores the database from the backup specified by `infile`.
+
+    Examples
+    --------
+    >>> do_restore("postgres", "backup.sql")
+
+    Notes
+    -----
+    - The function uses the `pg_restore` command-line utility to perform the restore, so this function is specific to Unix-like systems.
+
+    """
+    logging.info(f"Restoring database {database} from {infile}")
+    code = os.system(f"gunzip -c {infile} | /usr/local/pgsql/bin/psql {database}")
+    if code == 0:
+        logging.info(f"Restore complete")
+    else:
+        logging.error(f"Restore failed")
