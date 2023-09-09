@@ -136,4 +136,4 @@ operations: [
                     continue
 
                 logging.info(f"Inserting {len(files)} tables into database")
-                funcs.inject_files_procedure(files, conn, operation)
+                funcs.inject_files_procedure(files, conn, operation, config)
