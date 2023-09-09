@@ -9,6 +9,54 @@ from astroinject.inject.funcs import *
 from psycopg2 import OperationalError
 
 class Connection:
+    """
+    Class for handling PostgreSQL database connections and operations.
+
+    Parameters
+    ----------
+    conndict : dict, optional
+        Dictionary containing connection parameters. Default is an empty dictionary.
+
+    Attributes
+    ----------
+    _database : str
+        The database name.
+    _user : str
+        The username for connecting to the database.
+    _password : str
+        The password for connecting to the database.
+    _tablename : str
+        The name of the table to operate on.
+    _schema : str
+        The schema for the table.
+    _host : str
+        The host address for connecting to the database.
+    _connection : psycopg2 connection object
+        The psycopg2 connection object.
+    _cursor : psycopg2 cursor object
+        The psycopg2 cursor object.
+
+    Methods
+    -------
+    connect()
+        Establishes a connection to the PostgreSQL database.
+    _check_connection()
+        Checks and establishes a connection to the database if not connected.
+    create_schema()
+        Creates a new schema in the database if it doesn't exist.
+    execute(query)
+        Executes a SQL query on the database.
+    apply_coords_index(ra_col="RA", dec_col="DEC")
+        Applies a coordinates index on the table.
+    apply_field_index(field_col="Field")
+        Applies a field index on the table.
+    apply_pkey(pkey_col="ID")
+        Applies a primary key on the table.
+    replace_id_pattern(col="ID", pattern=" ", replacement="_")
+        Replaces a pattern in the ID column of the table.
+    inject(dataframe)
+        Injects a Pandas DataFrame into the database table.
+    """
     def __init__(self, conndict = {}):
         
         self._database = conndict.get('database', 'postgres')
