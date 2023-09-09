@@ -5,16 +5,16 @@ database:
     user: 
     password: 
     schema: dr4_vacs
-    tablename: dr4_photoz
+    tablename: dr4_star_galaxy_quasar
 
-checkpoint: "/home/gustavo/injection/dr4_photoz.txt"
-errors: "/home/gustavo/injection/dr4_photoz.txt"
+checkpoint: "/home/gustavo/injection/dr4_sqg.txt"
+errors: "/home/gustavo/injection/dr4_sqg.txt"
 
 operations:
   [
     {
       name: "find_pattern",
-      folder: "/storage/splus/Catalogues/VACs/photozs/iDR4",
+      folder: "/storage/splus/Catalogues/VACs/sqg/iDR4",
       pattern: "*.fits",
     },
     {
