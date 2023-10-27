@@ -5,22 +5,22 @@ database:
     user: 
     password: 
     schema: dr4_vacs
-    tablename: dr4_qso_photoz
+    tablename: dr4_calib_flag
 
-checkpoint: "/home/gustavo/injection/dr4_qso_photoz.txt"
-errors: "/home/gustavo/injection/dr4_qso_photoz.txt"
+checkpoint: "/home/gustavo/injection/dr4_calib_flag.txt"
+errors: "/home/gustavo/injection/dr4_calib_flag.txt"
 
 operations:
   [
     {
       name: "find_pattern",
-      folder: "/storage/splus/Catalogues/VACs/qso_z/iDR4",
-      pattern: "*ext.csv",
+      folder: "/storage/splus/Catalogues/VACs/calib_flag/iDR4",
+      pattern: "*.fits",
     },
     {
       "name": "insert_files",
-      "ra_col": "RA",
-      "dec_col": "DEC",
+      "ra_col": "ID_RA",
+      "dec_col": "ID_DEC",
       "col_pattern_replace": [{"name": "ID", "pattern": "iDR4", "replacement": "DR4"}],
     }  
   ]
