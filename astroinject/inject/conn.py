@@ -162,7 +162,21 @@ class Connection:
             logging.debug(f"Error injecting table. ")
             return False
 
-       
+    def get_tables_in_schema(self):
+        # SQL query to fetch all table names in the specified schema
+        query = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{self._schema}'"
+        tabs = []
+        
+        try:
+            self._cursor.execute(query)
+            tables = self._cursor.fetchall()
+            for table in tables:
+                tabs.append(table[0])
+            
+            return tabs
+        except Exception as e:
+            print(f"An error occurred: {e}")
+           
 
     def map_table(self):
         self._check_connection()
