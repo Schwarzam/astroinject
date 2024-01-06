@@ -70,18 +70,26 @@ files = funcs.find_files_with_pattern("/path/to/files", "*.fits")
 funcs.inject_files_procedure(files, connection, {"_format": "fits"}, config_object)
 ```
 
+### Making insertions from the command line
+
+```bash
+astroinject -u {user} -p {password} -C {config_file}
+```
+
+There are some examples of config files in the `config.examples/` directory.
+
 ### Backup and restore
 
 It's possible to create backups with astroinject. 
 
 ```bash
-astroinject --backup {database} {schema} {outfile}
+astroinject -u {user} -p {password} --backup {database} {schema} {outfile}
 ```
 
 Then to restore:
 
 ```bash
-astroinject --restore {database} {infile}
+astroinject -u {user} -p {password} --restore {database} {infile}
 ```
 
 
