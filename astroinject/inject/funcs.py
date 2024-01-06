@@ -210,7 +210,7 @@ def inject_files_procedure(files, conn, operation, config):
             write_error(f"Error injecting file {os.path.basename(file)}", config)
             continue
         
-        if key == 0:
+        if key == len(files) - 1:
             logging.info(f"Creating keys on {conn._tablename} {conn._schema}")
 
             filtered_args = filter_args(conn.apply_pkey, operation)

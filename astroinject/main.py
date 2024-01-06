@@ -76,7 +76,7 @@ operations: [
         config["database"]["password"] = args.password
 
     conn = inconn.Connection(config["database"])
-    conn.connect()
+    
     
     logging.info("Connected to database")
     
@@ -96,7 +96,7 @@ operations: [
 
     files = []
     for key, operation in enumerate(config["operations"]):
-        
+        conn.connect()
         if operation["name"] == "find_pattern":
 
             if 'filters' in operation:
@@ -137,3 +137,5 @@ operations: [
 
                 logging.info(f"Inserting {len(files)} tables into database")
                 funcs.inject_files_procedure(files, conn, operation, config)
+            
+            files = []
