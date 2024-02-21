@@ -256,7 +256,7 @@ def find_files_with_pattern(folder, pattern):
     - The pattern should be a shell-style wildcard pattern (e.g., "*.csv" for CSV files).
 
     """
-    files = os.popen(f"""find {folder} -name "{pattern}" """).read()
+    files = os.popen(f"""find {folder} -path "{pattern}" """).read()
     if not files:
         return []
 
