@@ -23,7 +23,7 @@ operations:
       "ra_col": "RA",
       "dec_col": "DEC",
       "_format": "csv",
-      # "col_pattern_replace": [{"name": "ID", "pattern": "iDR4", "replacement": "DR4"}],
+      "col_pattern_replace": [{"name": "ID", "pattern": "iDR4", "replacement": "DR4"}],
     }  
   ]
 
