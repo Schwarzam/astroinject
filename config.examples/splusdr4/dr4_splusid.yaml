@@ -19,6 +19,7 @@ operations:
     },
     {
       "name": "insert_files",
+      delcolumns: ['S2N', 'CLASS_STAR', 'max_s2n', 'origin_file'],
       "ra_col": "RA",
       "dec_col": "DEC",
       "_format": "csv",
