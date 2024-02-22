@@ -16,12 +16,12 @@ operations:
       "name": "find_pattern",
       "folder": "/storage/splus/Catalogues/shorts/",
       "pattern": "*Calibration_Shorts_add_offset*{filter}_single.fits",
-      "filters": ["detection", "R", "G", "I", "Z", "U", "F378", "F395", "F410", "F430", "F515", "F660", "F861"]
+      "filters": ["R", "G", "I", "Z", "U", "F378", "F395", "F410", "F430", "F515", "F660", "F861"]
     },
     {
       "name": "insert_files",
-      "ra_col": "RA",
-      "dec_col": "DEC",
+      "ra_col": "ID_RA",
+      "dec_col": "ID_DEC",
       "col_pattern_replace": [{"name": "ID", "pattern": "iSDR", "replacement": "SDR"}],
       "filters_names": {
         "R": "r",
