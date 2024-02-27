@@ -15,7 +15,7 @@ operations:
     {
       name: "find_pattern",
       folder: "/storage/splus/Catalogues/VACs/qso_z/iDR4",
-      pattern: "*QSO_VAC.csv",
+      pattern: "*QSOz_VAC.csv",
     },
     {
       "name": "insert_files",
