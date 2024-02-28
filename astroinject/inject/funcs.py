@@ -198,6 +198,11 @@ def inject_files_procedure(files, conn, operation, config):
         filtered_args = filter_args(process_file_to_dataframe, operation)
         df = process_file_to_dataframe(file, **filtered_args)
         
+        if 'convert_f64_to_f32' in operation:
+            if operation['convert_f64_to_f32']:
+                logging.info(f"Converting float64 to float32 - {os.path.basename(file)}")
+                df = convert_f64_to_f32(df)
+        
         if df is False:
             logging.error(f"Error opening file {os.path.basename(file)}")   
             write_error(f"Error opening file {os.path.basename(file)}", config)
@@ -335,6 +340,26 @@ def fits_to_dataframe(tablename):
         t[col] = str_columns[col]
 
     return t
+
+def convert_f64_to_f32(df, exclude_columns=["RA", "DEC"]):
+    """
+    Convert all float64 columns to float32, excluding specified columns.
+
+    Parameters:
+    - df: pandas DataFrame to process.
+    - exclude_columns: list of column names to exclude from conversion.
+
+    Returns:
+    - DataFrame with float64 columns converted to float32, except excluded columns.
+    """
+    if exclude_columns is None:
+        exclude_columns = []
+
+    for column in df.select_dtypes(include=['float64']).columns:
+        if column not in exclude_columns:
+            df[column] = df[column].astype('float32')
+
+    return df
 
 def do_backup(database, schema, outfile):
     """
