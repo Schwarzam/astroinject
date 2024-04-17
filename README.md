@@ -91,17 +91,3 @@ Then to restore:
 ```bash
 astroinject -u {user} -p {password} --restore {database} {infile}
 ```
-
-
-## Documentation
-
-For detailed documentation, please refer to the `docs/` directory.
-
-## Contributing
-
-We welcome contributions! Please see the `CONTRIBUTING.md` file for guidelines.
-
-## License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
-
