@@ -2,14 +2,14 @@
 
 ## Description
 
-AstroInject is a Python package designed to manage the injection of astronomical data into a PostgreSQL database. It provides utilities to search for files based on specific patterns, process those files into Pandas DataFrames, and then inject them into a database for further use or analysis.
+AstroInject is a Python package designed to manage the injection of astronomical data into a PostgreSQL database with proper pgsphere coordinates indexes. It provides utilities to search for files based on specific patterns, process those files into Pandas DataFrames, and then inject them into a database for further use or analysis.
 
 ## Features
 
 - File Search: Search for files in a directory based on specific patterns.
 - Data Processing: Convert FITS tables and CSV files to Pandas DataFrames.
 - Data Injection: Insert processed DataFrames into a PostgreSQL database.
-- Indexing and Key Management: Automatically apply primary keys and indexes to database tables.
+- Indexing and Key Management: Automatically apply primary keys and indexes (including pgsphere) to database tables.
 - Configuration: Easy configuration via YAML files and command-line options.
 
 ## Installation
