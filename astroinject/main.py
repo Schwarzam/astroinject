@@ -137,5 +137,8 @@ operations: [
 
                 logging.info(f"Inserting {len(files)} tables into database")
                 funcs.inject_files_procedure(files, conn, operation, config)
+        
+        elif operation["name"] == "map_table":
+            conn.map_table()
             
             files = []

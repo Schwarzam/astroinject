@@ -45,7 +45,8 @@ database:
 
 operations: [
   {"name": "find_pattern", "pattern": "*.fits"},
-  {"name": "insert_files"}
+  {"name": "insert_files"},
+  {"name": "map_table"}
 ]
 ```
 
