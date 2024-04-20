@@ -1,0 +1,24 @@
+database:
+    host: 192.168.10.22
+    database: publicdata
+    user: 
+    password: 
+    schema: usdr1
+    tablename: usdr1
+
+checkpoint: "/home/gustavo/injection/sdr1_checkpoint.txt"
+errors: "/home/gustavo/injection/sdr1_errors.txt"
+
+operations:
+  [
+    {
+      "name": "find_pattern",
+      "folder": "/storage/splus/files/shorts/sdr1",
+      "pattern": "*.fits",
+    },
+    {
+      "name": "insert_files",
+      "ra_col": "RA",
+      "dec_col": "DEC",
+    }
+  ]
