@@ -20,5 +20,8 @@ operations:
       "name": "insert_files",
       "ra_col": "RA",
       "dec_col": "DEC",
+    },
+    {
+      "name": "map_table"
     }
   ]

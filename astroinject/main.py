@@ -20,8 +20,6 @@ import sys
 import argparse
 import os 
 
-
-
 parser = argparse.ArgumentParser(description='Inject data into database')
 parser.add_argument('-C' ,'--config', type=str, default=None, help='Configuration file')
 parser.add_argument('-dd', '--getconfig', action='store_true', help='Get configuration file example')
@@ -137,8 +135,9 @@ operations: [
 
                 logging.info(f"Inserting {len(files)} tables into database")
                 funcs.inject_files_procedure(files, conn, operation, config)
+            
+            files = []
         
         elif operation["name"] == "map_table":
             conn.map_table()
             
-            files = []
