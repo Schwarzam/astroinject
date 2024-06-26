@@ -1,0 +1,27 @@
+
+database:
+    host: 192.168.10.22
+    database: splus
+    user: 
+    password: 
+    schema: idr5
+    tablename: idr5_single
+
+checkpoint: "/home/gustavo/injection/idr5_single.txt"
+errors: "/home/gustavo/injection/idr5_single.txt"
+
+operations:
+  [
+    {
+      name: "find_pattern",
+      folder: "/storage/splus/Catalogues/iDR5/idr5",
+      pattern: "*single.fits",
+    },
+    {
+      "name": "insert_files",
+      "ra_col": "RA",
+      "dec_col": "DEC",
+    }  
+  ]
+
+

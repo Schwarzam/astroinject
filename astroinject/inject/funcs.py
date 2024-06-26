@@ -138,7 +138,7 @@ def is_file_in_checkpoint(filename, config):
     if "checkpoint" in config:
         if os.path.exists(config["checkpoint"]):
             f = open(config["checkpoint"], "r")
-            lines = f.readlines()
+            lines = f.read().split("\n")
             f.close()
             if filename in lines:
                 return True
@@ -209,24 +209,27 @@ def inject_files_procedure(files, conn, operation, config):
             continue
 
         res = conn.inject(df)
-        
+
         if res is False:
             logging.error(f"Error injecting file {os.path.basename(file)}")
             write_error(f"Error injecting file {os.path.basename(file)}", config)
             continue
         
-        if key == len(files) - 1:
-            logging.info(f"Creating keys on {conn._tablename} {conn._schema}")
-
+        if key == 0:
+            logging.info(f"Creating pkey on {conn._tablename} {conn._schema}")
+            
             filtered_args = filter_args(conn.apply_pkey, operation)
             conn.apply_pkey(**filtered_args)
-             
+        
+        if key == len(files) - 1:
+            logging.info(f"Creating keys on {conn._tablename} {conn._schema}")
+ 
             filtered_args = filter_args(conn.apply_coords_index, operation)
             conn.apply_coords_index(**filtered_args)
 
             filtered_args = filter_args(conn.apply_field_index, operation)
             conn.apply_field_index(**filtered_args)
-        
+
         write_checkpoint(file, config)
         logging.info(f"File {os.path.basename(file)} injected successfully")
 

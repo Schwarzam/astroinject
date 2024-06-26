@@ -148,6 +148,7 @@ class Connection:
         self._check_connection()
         self.create_schema() 
         
+        
         try:
             engine = sqlalchemy.create_engine(f'postgresql://{self._user}:{self._password}@{self._host}/{self._database}')
             dataframe.to_sql(
@@ -155,7 +156,8 @@ class Connection:
                 schema=self._schema, 
                 if_exists='append', 
                 index=False,
-                con = engine
+                con = engine,
+                chunksize = 60000
             )
             return True
         except Exception:
