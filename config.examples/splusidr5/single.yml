@@ -14,8 +14,8 @@ operations:
   [
     {
       name: "find_pattern",
-      folder: "/storage/splus/Catalogues/iDR5/idr5",
-      pattern: "*single.fits",
+      folder: "/storage/splus/Catalogues/iDR5/idr5/single",
+      pattern: "*.fits",
     },
     {
       "name": "insert_files",
