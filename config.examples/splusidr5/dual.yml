@@ -15,7 +15,7 @@ operations:
     {
       name: "find_pattern",
       folder: "/storage/splus/Catalogues/iDR5/idr5",
-      pattern: "*dual.fits",
+      pattern: "*/dual/*.fits",
     },
     {
       "name": "insert_files",
