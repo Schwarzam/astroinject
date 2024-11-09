@@ -1,0 +1,28 @@
+database:
+    host: 192.168.10.22
+    database: splus
+    user: 
+    password: 
+    schema: idr5_vacs
+    tablename: idr5_photoz_v2
+
+checkpoint: "/home/gustavo/injection/idr5_photoz2.txt"
+errors: "/home/gustavo/injection/idr5_photoz2.txt"
+
+operations:
+  [
+    {
+      name: "find_pattern",
+      folder: "/storage/splus/Catalogues/VACs/photozs/iDR5_v2",
+      pattern: "*.csv",
+    },
+    {
+      "name": "insert_files",
+      "ra_col": "RA",
+      "dec_col": "DEC",
+      "_format": "csv",
+      "convert_f64_to_f32": True,
+    }  
+  ]
+
+
