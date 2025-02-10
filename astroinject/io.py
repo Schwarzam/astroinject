@@ -1,6 +1,9 @@
 from astropy.table import Table
 
 def open_table(table_name, format = "auto"):
+    if format == "auto":
+        format = table_name.split(".")[-1]
+    
     if format == "fits":
         table = Table.read(table_name)
     elif ".parquet" in table_name or format == "parquet":
