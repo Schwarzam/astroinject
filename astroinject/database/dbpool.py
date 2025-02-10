@@ -1,41 +1,56 @@
 import psycopg2
 from psycopg2 import pool
 from psycopg2.extras import execute_values
-
 import io
+import numpy as np
 
-import numpy as np 
+class PostgresConnectionManager:
+    """
+    PostgreSQL Connection Manager that supports both connection pooling and single connection modes.
+    Set `use_pool=True` to use a connection pool or `use_pool=False` to use a single connection.
+    """
 
-class PostgresConnectionPool:
-    """PostgreSQL Connection Pool Manager with query execution and bulk inserts."""
-
-    def __init__(self, minconn=1, maxconn=10, **db_params):
+    def __init__(self, use_pool=True, minconn=1, maxconn=10, **db_params):
         """
-        Initialize the PostgreSQL connection pool.
-        :param minconn: Minimum connections in pool.
-        :param maxconn: Maximum connections in pool.
-        :param db_params: Database connection parameters (dbname, user, password, host).
+        Initialize the connection manager.
+        
+        :param use_pool: If True, use a connection pool; otherwise use a single connection.
+        :param minconn: Minimum connections in pool (if use_pool is True).
+        :param maxconn: Maximum connections in pool (if use_pool is True).
+        :param db_params: Database connection parameters (e.g. dbname, user, password, host, etc.).
         """
-        self.pool = psycopg2.pool.ThreadedConnectionPool(minconn, maxconn, **db_params)
+        self.use_pool = use_pool
+        if self.use_pool:
+            self.pool = psycopg2.pool.ThreadedConnectionPool(minconn, maxconn, **db_params)
+        else:
+            self.connection = psycopg2.connect(**db_params)
     
     def get_connection(self):
-        """Retrieve a connection from the pool."""
-        return self.pool.getconn()
+        """Retrieve a connection from the pool or the single connection."""
+        if self.use_pool:
+            return self.pool.getconn()
+        else:
+            return self.connection
 
     def release_connection(self, conn):
-        """Return a connection to the pool."""
-        self.pool.putconn(conn)
-
-    def close_pool(self):
-        """Close all connections in the pool."""
-        self.pool.closeall()
-
+        """Release the connection back to the pool if using a pool (no-op for single connection)."""
+        if self.use_pool:
+            self.pool.putconn(conn)
+    
+    def close(self):
+        """Close all connections. For pool mode, closes all pooled connections. For single connection, closes that one."""
+        if self.use_pool:
+            self.pool.closeall()
+        else:
+            self.connection.close()
+    
     def execute_query(self, query, params=None, fetch=False):
         """
         Execute a SQL query.
+        
         :param query: SQL query to execute.
         :param params: Parameters for query (tuple or list).
-        :param fetch: If True, fetch results.
+        :param fetch: If True, fetch and return results.
         :return: Query result if fetch=True, otherwise None.
         """
         conn = self.get_connection()
@@ -43,59 +58,65 @@ class PostgresConnectionPool:
             with conn.cursor() as cur:
                 cur.execute(query, params)
                 if fetch:
-                    return cur.fetchall()
+                    result = cur.fetchall()
+                    return result
                 conn.commit()
         except Exception as e:
             conn.rollback()
             print(f"❌ Query failed: {e}")
         finally:
             self.release_connection(conn)
-
+    
     def format_pg_array_vectorized(self, values):
         """
-        ✅ Fully vectorized function to format PostgreSQL arrays.
+        Vectorized function to format Python arrays/lists into PostgreSQL array string format.
+        
         - Converts NumPy arrays & lists to PostgreSQL `{}` format.
-        - Handles None values (converts to NULL).
+        - Handles None values (converts to "NULL").
+        
+        :param values: An array-like object of values.
+        :return: A list of formatted values.
         """
         values = np.array(values, dtype=object)  # Convert input to NumPy array
         
-        # 🔹 Convert lists/arrays to PostgreSQL `{}` format
+        # Convert lists/arrays to PostgreSQL array format
         is_list = np.vectorize(lambda x: isinstance(x, (list, np.ndarray)))(values)
         values[is_list] = np.vectorize(lambda x: "{" + ",".join(map(str, x)) + "}")(values[is_list])
-
-        # 🔹 Handle `None` values (convert to NULL)
+        
+        # Handle None values (convert to "NULL")
         is_none = values == None  # NumPy-safe None check
         values[is_none] = "NULL"
-
+        
         return values.tolist()
-
+    
     def insert_data_copy_w_idhandling(self, table_name, columns, records, id_col):
         """
-        ✅ Bulk insert data using COPY with vectorized array handling.
-        :param table_name: Target table.
-        :param columns: Column names.
-        :param records: List of tuples (data).
-        :param id_col: Primary Key column name (to handle conflicts).
+        Bulk insert data using COPY with temporary table to handle primary key conflicts.
+        
+        :param table_name: Target table name.
+        :param columns: List of column names.
+        :param records: List of tuples containing the data.
+        :param id_col: The primary key column name (for conflict handling).
         """
         conn = self.get_connection()
         try:
             with conn.cursor() as cur:
-                # 🔹 Create TEMP table to handle PK conflicts
+                # Create a temporary table based on the target table
                 temp_table = f"{table_name}_temp"
                 cur.execute(f"CREATE TEMP TABLE {temp_table} (LIKE {table_name} INCLUDING ALL) ON COMMIT DROP;")
-
-                # 🔥 Convert records to NumPy & vectorize array formatting
+                
+                # Format records using the vectorized function
                 records_np = np.array(records, dtype=object)
                 formatted_records = self.format_pg_array_vectorized(records_np)
-
-                # 🔹 Convert to CSV format in memory
+                
+                # Convert formatted records to CSV-like text in memory
                 csv_data = io.StringIO("\n".join(["\t".join(map(str, row)) for row in formatted_records]) + "\n")
-
-                # 🔥 COPY data into the TEMP table
+                
+                # Copy data into the temporary table
                 copy_query = f"COPY {temp_table} ({', '.join(columns)}) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t')"
                 cur.copy_expert(copy_query, csv_data)
-
-                # 🔹 Merge into the main table, handling conflicts
+                
+                # Merge data from the temporary table into the main table, handling conflicts
                 column_list = ", ".join(columns)
                 insert_query = f"""
                     INSERT INTO {table_name} ({column_list})
@@ -103,59 +124,56 @@ class PostgresConnectionPool:
                     ON CONFLICT ({id_col}) DO NOTHING;
                 """
                 cur.execute(insert_query)
-
                 conn.commit()
                 print(f"✅ Inserted {len(records)} rows into {table_name} using COPY with vectorized array handling.")
-
         except Exception as e:
             conn.rollback()
             print(f"❌ COPY insert failed: {e}")
         finally:
             self.release_connection(conn)
-            
+    
     def insert_data_copy(self, table_name, columns, records):
         """
-        ✅ Bulk insert data using COPY without conflict handling (for max performance).
-        :param table_name: Target table.
-        :param columns: Column names.
-        :param records: List of tuples (data).
+        Bulk insert data using COPY without conflict handling for maximum performance.
+        
+        :param table_name: Target table name.
+        :param columns: List of column names.
+        :param records: List of tuples containing the data.
         """
         conn = self.get_connection()
         try:
             with conn.cursor() as cur:
-                # 🔥 Convert records to NumPy & vectorize array formatting
+                # Format records using the vectorized function
                 records_np = np.array(records, dtype=object)
                 formatted_records = self.format_pg_array_vectorized(records_np)
-
-                # 🔹 Convert to CSV format in memory
+                
+                # Convert formatted records to CSV-like text in memory
                 csv_data = io.StringIO("\n".join(["\t".join(map(str, row)) for row in formatted_records]) + "\n")
-
-                # 🔥 COPY data into the main table (⚡ NO Conflict Handling ⚡)
+                
+                # Copy data directly into the main table
                 copy_query = f"COPY {table_name} ({', '.join(columns)}) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t')"
                 cur.copy_expert(copy_query, csv_data)
-
                 conn.commit()
                 print(f"✅ Inserted {len(records)} rows into {table_name} using COPY (no conflict handling).")
-
         except Exception as e:
             conn.rollback()
             print(f"❌ COPY insert failed: {e}")
         finally:
             self.release_connection(conn)
-            
+    
     def insert_data(self, table_name, columns, records, id_col=None):
         """
-        Bulk insert data into PostgreSQL using `execute_values()`, handling conflicts.
-        :param table_name: Target table.
-        :param columns: Column names.
-        :param records: List of tuples (data).
-        :param id_col: Primary key column (for ON CONFLICT handling).
+        Bulk insert data using execute_values(), optionally handling conflicts on a given primary key.
+        
+        :param table_name: Target table name.
+        :param columns: List of column names.
+        :param records: List of tuples containing the data.
+        :param id_col: The primary key column name for ON CONFLICT handling (if provided).
         """
         conn = self.get_connection()
         try:
             columns_str = ", ".join(columns)
             on_conflict_clause = f"ON CONFLICT ({id_col}) DO NOTHING" if id_col else ""
-
             query = f"""
                 INSERT INTO {table_name} ({columns_str})
                 VALUES %s
