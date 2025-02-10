@@ -1,0 +1,1 @@
+There were configs from the old astroinject version.
