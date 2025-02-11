@@ -20,3 +20,5 @@ def generate_create_table_query(table_name, table, id_col=None):
     create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} (\n    {columns_str}\n);"
     return create_table_query
 
+def vacuum_query(table_name):
+    return f"VACUUM ANALYZE {table_name};"

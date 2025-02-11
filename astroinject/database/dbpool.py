@@ -43,6 +43,33 @@ class PostgresConnectionManager:
             self.pool.closeall()
         else:
             self.connection.close()
+            
+    def execute_query_wt_tblock(self, query, params=None, fetch=False):
+        """
+        Execute a SQL query outside a transaction block.
+        
+        :param query: SQL query to execute.
+        :param params: Parameters for query (tuple or list).
+        :param fetch: If True, fetch and return results.
+        :return: Query result if fetch=True, otherwise None.
+        """
+        conn = self.get_connection()
+        # Enable autocommit so that the query runs outside a transaction block.
+        conn.autocommit = True
+        try:
+            with conn.cursor() as cur:
+                cur.execute(query, params)
+                if fetch:
+                    result = cur.fetchall()
+                    return result
+                # No need to call conn.commit() in autocommit mode.
+        except Exception as e:
+            # In autocommit mode, rollback is not needed, but you might log the error.
+            print(f"❌ Query failed: {e}")
+        finally:
+            # Reset autocommit to False if your application expects that by default.
+            conn.autocommit = False
+            self.release_connection(conn)
     
     def execute_query(self, query, params=None, fetch=False):
         """
