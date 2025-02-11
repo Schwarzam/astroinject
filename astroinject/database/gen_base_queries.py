@@ -9,6 +9,7 @@ def generate_create_table_query(table_name, table, id_col=None):
     
     for col in table.colnames:
         sample_value = table[col][first_valid_index(table[col])]  # Take first row as a sample
+        
         pg_type = infer_pg_type(sample_value)
         
         if id_col and id_col.lower() == col.lower():  # Ensure 'id' is the primary key

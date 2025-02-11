@@ -4,6 +4,8 @@ from psycopg2.extras import execute_values
 import io
 import numpy as np
 
+from logpool import control
+
 class PostgresConnectionManager:
     """
     PostgreSQL Connection Manager that supports both connection pooling and single connection modes.
@@ -65,7 +67,7 @@ class PostgresConnectionManager:
                 # No need to call conn.commit() in autocommit mode.
         except Exception as e:
             # In autocommit mode, rollback is not needed, but you might log the error.
-            print(f"❌ Query failed: {e}")
+            control.critical(f"query failed: {e}")
         finally:
             # Reset autocommit to False if your application expects that by default.
             conn.autocommit = False
@@ -90,7 +92,7 @@ class PostgresConnectionManager:
                 conn.commit()
         except Exception as e:
             conn.rollback()
-            print(f"❌ Query failed: {e}")
+            control.critical(f"query failed: {e}")
         finally:
             self.release_connection(conn)
     
@@ -99,21 +101,25 @@ class PostgresConnectionManager:
         Vectorized function to format Python arrays/lists into PostgreSQL array string format.
         
         - Converts NumPy arrays & lists to PostgreSQL `{}` format.
-        - Handles None values (converts to "NULL").
+        - Handles None values (converts to SQL NULL for single values and NULL inside arrays).
         
         :param values: An array-like object of values.
         :return: A list of formatted values.
         """
         values = np.array(values, dtype=object)  # Convert input to NumPy array
-        
+
         # Convert lists/arrays to PostgreSQL array format
         is_list = np.vectorize(lambda x: isinstance(x, (list, np.ndarray)))(values)
-        values[is_list] = np.vectorize(lambda x: "{" + ",".join(map(str, x)) + "}")(values[is_list])
         
-        # Handle None values (convert to "NULL")
-        is_none = values == None  # NumPy-safe None check
-        values[is_none] = "NULL"
-        
+        def format_array(arr):
+            """Format arrays properly, replacing None with NULL inside PostgreSQL arrays."""
+            return "{" + ",".join("null" if x is None else str(x) for x in arr) + "}"
+
+        values[is_list] = np.vectorize(format_array)(values[is_list])
+
+        # Handle None values (convert to SQL NULL for single elements)
+        values[values == None] = None  # Make sure NULLs remain NULL (not "NULL" as a string)
+
         return values.tolist()
     
     def insert_data_copy_w_idhandling(self, table_name, columns, records, id_col):
@@ -155,7 +161,7 @@ class PostgresConnectionManager:
                 print(f"✅ Inserted {len(records)} rows into {table_name} using COPY with vectorized array handling.")
         except Exception as e:
             conn.rollback()
-            print(f"❌ COPY insert failed: {e}")
+            control.critical(f"COPY insert failed: {e}")
         finally:
             self.release_connection(conn)
     
@@ -178,13 +184,13 @@ class PostgresConnectionManager:
                 csv_data = io.StringIO("\n".join(["\t".join(map(str, row)) for row in formatted_records]) + "\n")
                 
                 # Copy data directly into the main table
-                copy_query = f"COPY {table_name} ({', '.join(columns)}) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t')"
+                copy_query = f"""COPY {table_name} ({', '.join(columns)}) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t', NULL 'None')"""
                 cur.copy_expert(copy_query, csv_data)
                 conn.commit()
                 print(f"✅ Inserted {len(records)} rows into {table_name} using COPY (no conflict handling).")
         except Exception as e:
             conn.rollback()
-            print(f"❌ COPY insert failed: {e}")
+            control.critical(f"COPY insert failed: {e}")
         finally:
             self.release_connection(conn)
     

@@ -38,12 +38,10 @@ def convert_str_arrays_to_arrays(table):
 
 def preprocess_table(
         table, 
-        remove_columns = [], 
-        col_pattern_replace = [],
-        mask_value = None
+        config
     ):
     
-    if remove_columns:
+    if config["delete_columns"]:
         table.remove_columns(remove_columns)
     
     for col in table.colnames:
@@ -53,19 +51,23 @@ def preprocess_table(
         if "|S" in str(table[col].dtype):
             table[col] = table[col].astype(str)
     
-    if col_pattern_replace:
+    if config["rename_columns"]:
+        for col in config["rename_columns"]:
+            table.rename_column(col, config["rename_columns"][col].lower())
+    
+    if config["patterns_to_replace"]:
         for info in col_pattern_replace:
             info['name'] = info['name'].lower()
             table[info['name']] = np.char.replace(table[info['name']], info["pattern"], info["replacement"])
     
-    if mask_value:
+    if config["mask_value"]:
         for col in table.colnames:
             if np.issubdtype(table[col].dtype, (np.number)):  # Only modify numeric columns
                 if "MaskedColumn" in str(type(table[col])):
                     control.warn(f"column {col} is already masked, cannot mask again")
                     continue
                 else:
-                    table[col] = MaskedColumn(table[col], mask=(table[col] == mask_value))  
+                    table[col] = MaskedColumn(table[col], mask=(table[col] == config["mask_value"]))  
     
     table = convert_str_arrays_to_arrays(table)
     # TODO: Add type optimization
