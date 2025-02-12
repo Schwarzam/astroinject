@@ -43,5 +43,5 @@ def find_files_with_pattern(folder, pattern):
         return []
 
     files = files.split('\n')
-    files = [f for f in files if f]
+    files = [f for f in files if os.path.isfile(f)]
     return files
