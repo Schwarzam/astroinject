@@ -3,6 +3,7 @@ from logpool import control
 from astropy.table import MaskedColumn
 
 from astroinject.utils import first_valid_index
+from astroinject.database.types import force_cast_types
 
 def vectorized_string_to_array(column_data):
     """Fully vectorized conversion of formatted string arrays to NumPy arrays (handling sequences properly)."""
@@ -38,7 +39,8 @@ def convert_str_arrays_to_arrays(table):
 
 def preprocess_table(
         table, 
-        config
+        config,
+        types_map = None
     ):
     
     if config["delete_columns"]:
@@ -46,6 +48,9 @@ def preprocess_table(
     
     for col in table.colnames:
         table.rename_column(col, col.lower())
+    
+    if types_map:
+        table = force_cast_types(table, types_map)
     
     for col in table.colnames:
         if "|S" in str(table[col].dtype):

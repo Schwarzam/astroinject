@@ -98,27 +98,29 @@ class PostgresConnectionManager:
     
     def format_pg_array_vectorized(self, values):
         """
-        Vectorized function to format Python arrays/lists into PostgreSQL array string format.
+        ✅ Fully vectorized function to format PostgreSQL arrays.
         
-        - Converts NumPy arrays & lists to PostgreSQL `{}` format.
-        - Handles None values (converts to SQL NULL for single values and NULL inside arrays).
+        - Converts lists/NumPy arrays to PostgreSQL `{}` format.
+        - Handles None values (single values → NULL, arrays → 'null' inside).
         
         :param values: An array-like object of values.
         :return: A list of formatted values.
         """
         values = np.array(values, dtype=object)  # Convert input to NumPy array
 
-        # Convert lists/arrays to PostgreSQL array format
-        is_list = np.vectorize(lambda x: isinstance(x, (list, np.ndarray)))(values)
-        
+        # 🔹 Check which elements are lists/arrays
+        is_list = np.vectorize(lambda x: isinstance(x, (list, np.ndarray)), otypes=[bool])(values)
+
         def format_array(arr):
             """Format arrays properly, replacing None with NULL inside PostgreSQL arrays."""
-            return "{" + ",".join("null" if x is None else str(x) for x in arr) + "}"
+            return "{" + ",".join("NULL" if x is None else str(x) for x in arr) + "}"
 
-        values[is_list] = np.vectorize(format_array)(values[is_list])
+        if np.any(is_list):  # 🔹 Only apply vectorization if there are list-like elements
+            # values[is_list] = np.vectorize(format_array, otypes=[object])(values[is_list])
+            values[is_list] = np.vectorize(format_array, otypes=[object])(values[is_list])
 
-        # Handle None values (convert to SQL NULL for single elements)
-        values[values == None] = None  # Make sure NULLs remain NULL (not "NULL" as a string)
+        # 🔹 Handle None values for non-array elements
+        values[values == None] = None  # ✅ Keeps None as NULL in SQL
 
         return values.tolist()
     
@@ -180,6 +182,7 @@ class PostgresConnectionManager:
             with conn.cursor() as cur:
                 # Format records using the vectorized function
                 records_np = np.array(records, dtype=object)
+                
                 formatted_records = self.format_pg_array_vectorized(records_np)
                 
                 # Convert formatted records to CSV-like text in memory
