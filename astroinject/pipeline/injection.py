@@ -11,7 +11,7 @@ import multiprocessing
 
 def injection_procedure(filepath, config):
     control.info(f"Injecting table {filepath} into the database")
-    table = open_table(filepath)
+    table = open_table(filepath, config)
     if len(table) == 0:
         control.warn(f"Table {filepath} is empty. Skipping...")
         return
@@ -24,7 +24,7 @@ def injection_procedure(filepath, config):
     pg_conn.close()
     
 def create_table(filepath, config):
-    table = open_table(filepath)
+    table = open_table(filepath, config)
     table = preprocess_table(table, config)
     
     create_query = generate_create_table_query(config["tablename"], table, config["id_col"])

@@ -3,7 +3,7 @@ from astroinject.utils import first_valid_index
 
 # Function to infer PostgreSQL data types dynamically
 def infer_pg_type(value):
-    if isinstance(value, (np.int32, np.int64, int)):
+    if isinstance(value, (np.int16, np.int32, np.int64, int)):
         if abs(value) > 2_147_483_647:  # PostgreSQL INTEGER limit
             return "BIGINT"
         else:
@@ -17,7 +17,7 @@ def infer_pg_type(value):
     elif isinstance(value, str):
         return "TEXT"
     if isinstance(value, np.ndarray):  # Multi-dimensional columns
-        if isinstance(value[0], (np.int32, np.int64, int)):
+        if isinstance(value[0], (np.int16, np.int32, np.int64, int)):
             return "BIGINT[]"
         elif isinstance(value[0], (np.float32, np.float64, float)):
             if isinstance(value[0], np.float32):
