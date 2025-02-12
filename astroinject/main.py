@@ -26,10 +26,10 @@ def injection():
         config["pattern"]
     )
     
-    control.info(f"dound {len(files)} files to inject")
-    parallel_insertion(files, config)
+    control.info(f"found {len(files)} files to inject")
     
-    print(args.baseconfig)
+    parallel_insertion(files, config)
+    apply_index(config)
     
     
     

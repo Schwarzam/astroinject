@@ -146,15 +146,17 @@ class PostgresConnectionManager:
                 csv_data = io.StringIO("\n".join(["\t".join(map(str, row)) for row in formatted_records]) + "\n")
                 
                 # Copy data into the temporary table
-                copy_query = f"COPY {temp_table} ({', '.join(columns)}) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t')"
+                copy_query = f"COPY {temp_table} ({', '.join(columns)}) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t', NULL 'None')"
                 cur.copy_expert(copy_query, csv_data)
                 
                 # Merge data from the temporary table into the main table, handling conflicts
                 column_list = ", ".join(columns)
+                
+                conflict_case = f"ON CONFLICT ({id_col}) DO NOTHING" if id_col else ""
                 insert_query = f"""
                     INSERT INTO {table_name} ({column_list})
                     SELECT {column_list} FROM {temp_table}
-                    ON CONFLICT ({id_col}) DO NOTHING;
+                    {conflict_case};
                 """
                 cur.execute(insert_query)
                 conn.commit()
