@@ -42,7 +42,7 @@ def preprocess_table(
     ):
     
     if config["delete_columns"]:
-        table.remove_columns(remove_columns)
+        table.remove_columns(config["delete_columns"])
     
     for col in table.colnames:
         table.rename_column(col, col.lower())

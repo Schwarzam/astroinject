@@ -7,7 +7,8 @@ def open_table(table_name, config):
 	
 	if "format" in config:
 		format = config["format"]
-  
+	else:
+		format = "auto"
 	
 	if format == "auto":
 		format = table_name.split(".")[-1]
