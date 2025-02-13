@@ -14,15 +14,23 @@ def map_table(config):
     schema = None
     table_name = None
     
+    if "." in config['tablename']:
+        schema = config['tablename'].split(".")[0]
+        table_name = config['tablename'].split(".")[1]
+    else:
+        table_name = config['tablename']
+    
     dic = {}
     count = 0
     for row in infos:
         table_name = row[2]
-        if table_name == config['tablename']:
+            
+        if row[2] == table_name:
+            if schema is not None and schema != row[1]:
+                continue
+            
             if schema is None:
                 schema = row[1]
-            if table_name is None:
-                table_name = row[2]
                 
             column_name = row[3]
             col_type = row[27]

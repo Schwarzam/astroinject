@@ -13,6 +13,7 @@ setup(
     entry_points={
         'console_scripts': [
             'astroinject=astroinject.main:injection',
+            'map_table=astroinject.main:map_table_command',
         ],
     },
 )

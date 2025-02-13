@@ -6,6 +6,8 @@ from astroinject.pipeline.injection import injection_procedure, create_table, pa
 from astroinject.utils import find_files_with_pattern
 from astroinject.config import load_config
 
+from astroinject.pipeline.map_tap_schema import map_table
+
 from logpool import control
 
 import warnings
@@ -35,4 +37,16 @@ def injection():
     apply_index(config)
     
     
+def map_table_command():
+    parser = argparse.ArgumentParser(description="map a table to the TAP_SCHEMA")
     
+    parser.add_argument("-b", "--baseconfig", help="Base database config file")
+    parser.add_argument("-c", "--tableconfig", help="Table specifig config file")
+    args = parser.parse_args()
+
+    config = load_config(args.baseconfig)
+    config.update(load_config(args.tableconfig))
+    
+    control.info("starting mapping procedure")
+    map_table(config)
+    control.info("finished mapping procedure")
