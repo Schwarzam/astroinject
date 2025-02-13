@@ -8,6 +8,9 @@ from astroinject.config import load_config
 
 from logpool import control
 
+import warnings
+warnings.filterwarnings("ignore")
+
 def injection():
     parser = argparse.ArgumentParser(description="Inject data from a CSV file into a database")
     

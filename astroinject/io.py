@@ -3,6 +3,9 @@ import gzip
 
 from logpool import control
 
+import warnings
+warnings.filterwarnings("ignore")
+
 def open_table(table_name, config):
 	
 	if "format" in config:
