@@ -1,6 +1,7 @@
 from astropy.table import Table
 import gzip
 
+import pandas as pd
 from logpool import control
 
 import warnings
@@ -29,7 +30,13 @@ def open_table(table_name, config):
 	if format == "fits":
 		table = Table.read(table_name)
 	elif ".parquet" in table_name or format == "parquet":
-		table = Table.read(table_name, format="parquet")
+		try:
+			table = Table.read(table_name, format="parquet")
+		except Exception as e:
+			control.critical(f"Error reading parquet file, falling back to pandas: {e}")
+			table = pd.read_parquet(table_name)
+			table = Table.from_pandas(table)
+	
 	elif ".csv" in table_name or format == "csv":
 		table = Table.read(table_name, format="csv")
 	else:
