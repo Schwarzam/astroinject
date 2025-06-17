@@ -61,7 +61,7 @@ def preprocess_table(
             table.rename_column(col, config["rename_columns"][col].lower())
     
     if config["patterns_to_replace"]:
-        for info in col_pattern_replace:
+        for info in config["patterns_to_replace"]:
             info['name'] = info['name'].lower()
             table[info['name']] = np.char.replace(table[info['name']], info["pattern"], info["replacement"])
     

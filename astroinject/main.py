@@ -8,12 +8,12 @@ from astroinject.config import load_config
 
 from astroinject.pipeline.map_tap_schema import map_table
 
-from logpool import control
-
 import warnings
 warnings.filterwarnings("ignore")
 
 def injection():
+    from logpool import control
+    
     parser = argparse.ArgumentParser(description="Inject data from a CSV file into a database")
     
     parser.add_argument("-b", "--baseconfig", help="Base database config file")
