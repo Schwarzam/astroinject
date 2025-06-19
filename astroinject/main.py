@@ -68,7 +68,47 @@ def create_index_command():
     elif args.index_type == "btree":
         apply_btree_index(config)
     
+
+def execute_query_command():
+    from astroinject.database.dbpool import PostgresConnectionManager
+    from astroinject.database.gen_base_queries import vacuum_query
+
+    parser = argparse.ArgumentParser(description="Execute a custom SQL query on the database")
     
+    parser.add_argument("-b", "--baseconfig", help="Base database config file")
+    parser.add_argument("-q", "--query", help="SQL query to execute")
+    parser.add_argument("-f", "--query_file", help="File containing SQL query to execute")
+    parser.add_argument("--vacuum", action="store_true", help="Run VACUUM after query execution")
+    parser.add_argument("-st", "--schema_table", help="Table name for vacuum (format: schema.table)")
+    
+    args = parser.parse_args()
+
+    if not args.query and not args.query_file:
+        raise ValueError("Either --query or --query_file must be provided")
+
+    config = load_config(args.baseconfig)
+    
+    # Get the query from command line or file
+    if args.query_file:
+        with open(args.query_file, 'r') as f:
+            query = f.read().strip()
+    else:
+        query = args.query
+    
+    pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
+    control.info(f"executing custom query:\n{query}")
+    
+    pg_conn.execute_query(query)
+    
+    # Optional vacuum after query
+    if args.vacuum and args.schema_table:
+        vacuum_q = vacuum_query(args.schema_table)
+        control.info(f"executing:\n{vacuum_q}")
+        pg_conn.execute_query_wt_tblock(vacuum_q)
+    
+    pg_conn.close()
+    control.info("done executing custom query.")    
+
 def map_table_command():
     parser = argparse.ArgumentParser(description="map a table to the TAP_SCHEMA")
     
