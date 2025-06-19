@@ -41,7 +41,7 @@ def create_index_command():
     
     parser.add_argument("-b", "--baseconfig", help="Base database config file")
     parser.add_argument("-i", "--index_type", choices=["pgsphere", "q3c", "btree"], help="Type of index to create")
-    parser.add_argument("-st", "--schema.table", help="Table to create indexes on (format: schema.table)")
+    parser.add_argument("-st", "--schema_table", help="Table to create indexes on (format: schema.table)")
     parser.add_argument("-ra", "--ra_col", help="Column name for Right Ascension")
     parser.add_argument("-dec", "--dec_col", help="Column name for Declination")
     parser.add_argument("-c", "--target_col", nargs='*', help="Additional columns for B-Tree index creation")
