@@ -4,7 +4,7 @@ from astroinject.database.gen_base_queries import vacuum_query
 
 from logpool import control 
 
-def apply_index(config):
+def apply_pgsphere_index(config):
     index_query = make_pg_sphere_index(config["tablename"], config["ra_col"], config["dec_col"])
     vacuum_q = vacuum_query(config["tablename"])
     
@@ -19,7 +19,7 @@ def apply_index(config):
     pg_conn.close()
     control.info("done applying indexes.")
     
-def apply_index_q3c(config):
+def apply_q3c_index(config):
     index_query = make_q3c_index(config["tablename"], config["ra_col"], config["dec_col"])
     vacuum_q = vacuum_query(config["tablename"])
     

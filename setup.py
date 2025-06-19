@@ -14,6 +14,7 @@ setup(
         'console_scripts': [
             'astroinject=astroinject.main:injection',
             'map_table=astroinject.main:map_table_command',
+            'create_index=astroinject.main:create_index_command',
         ],
     },
 )
