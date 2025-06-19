@@ -39,22 +39,25 @@ def apply_btree_index(config):
     Applies a B-Tree index to the specified table.
     """
     
-    if not config["additional_btree_index"]:
+    if "additional_btree_index" not in config:
         return
 
-    for col in config["additional_btree_index"]:
-        if col not in config["columns"]:
-            control.warn(f"Column {col} not found in table {config['tablename']}. Skipping B-Tree index creation.")
-            return
-        
-    index_query = f"CREATE INDEX IF NOT EXISTS {config['tablename']}_{col}_btree ON {config['tablename']} USING btree ({col});"
-    vacuum_q = vacuum_query(config["tablename"])
+    if not isinstance(config["additional_btree_index"], list):
+        config["additional_btree_index"] = [config["additional_btree_index"]]
     
-    pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
-    control.info(f"executing:\n{index_query}")
-    pg_conn.execute_query(index_query)
-    control.info(f"executing:\n{vacuum_q}")
-    pg_conn.execute_query_wt_tblock(vacuum_q)
-    pg_conn.close()
-    control.info("done applying B-Tree indexes.")
+    for col in config["additional_btree_index"]:
+        if col not in config["additional_btree_index"]:
+            control.warn(f"Column {col} not found in table {config['tablename']}. Skipping B-Tree index creation.")
+            continue
+        
+        index_query = f"CREATE INDEX IF NOT EXISTS {config['tablename']}_{col}_btree ON {config['tablename']} USING btree ({col});"
+        vacuum_q = vacuum_query(config["tablename"])
+        
+        pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
+        control.info(f"executing:\n{index_query}")
+        pg_conn.execute_query(index_query)
+        control.info(f"executing:\n{vacuum_q}")
+        pg_conn.execute_query_wt_tblock(vacuum_q)
+        pg_conn.close()
+        control.info("done applying B-Tree indexes.")
     
