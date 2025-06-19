@@ -60,7 +60,6 @@ def create_index_command():
     config["additional_btree_index"] = [args.target_col] if not isinstance(args.target_col, list) else args.target_col
     
     control.info("starting index creation procedure")
-    control.info(f"config: \n{config}")
     
     if args.index_type == "pgsphere":
         apply_pgsphere_index(config)

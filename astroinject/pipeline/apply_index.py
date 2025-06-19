@@ -50,7 +50,7 @@ def apply_btree_index(config):
             control.warn(f"Column {col} not found in table {config['tablename']}. Skipping B-Tree index creation.")
             continue
         
-        index_query = f"CREATE INDEX IF NOT EXISTS {config['tablename']}_{col}_btree ON {config['tablename']} USING btree ({col});"
+        index_query = f"CREATE INDEX IF NOT EXISTS {config['tablename'].replace('.', '_')}_{col}_btree ON {config['tablename']} USING btree ({col});"
         vacuum_q = vacuum_query(config["tablename"])
         
         pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
