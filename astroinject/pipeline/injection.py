@@ -18,6 +18,33 @@ def injection_procedure(filepath, types_map, config):
             control.warn(f"Table {filepath} is empty. Skipping...")
             return
 
+        # check if the first row already exists in the database because of id column
+        if "id_col" in config and config["id_col"] is not None:
+            id_col = config["id_col"]
+            if "rename_columns" in config and config["rename_columns"] is not None:
+                for col in config["rename_columns"]:
+                    if config["rename_columns"][col] == config["id_col"]:
+                        id_col = col
+            
+            first_table_id = table[0][id_col]
+            
+            pg_conn = PostgresConnectionManager(**config["database"])
+            
+            try:
+                constrain = f"{config['id_col']} = {int(first_table_id)}"
+            except (ValueError, TypeError):
+                constrain = f"{config['id_col']} = '{first_table_id}'"
+            
+            existing_ids = pg_conn.execute_query(f"""
+                SELECT {config['id_col']}
+                FROM {config['tablename']}
+                WHERE {constrain}
+            """, fetch=True)
+            if existing_ids:
+                control.warn(f"Row with ID {first_table_id} already exists in the database. Skipping {filepath}.")
+                pg_conn.close()
+                return
+        
         table = preprocess_table(table, config, types_map)
         records = convert_table_to_postgres_records(table)
 

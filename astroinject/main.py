@@ -34,8 +34,14 @@ def injection():
     control.info(f"found {len(files)} files to inject")
     
     parallel_insertion(files, config)
-    apply_pgsphere_index(config)
-
+    
+    if not "index_type" in config or config["index_type"] is None:
+        control.info("no index type specified, skipping index creation")
+    elif config["index_type"] == "pgsphere":
+        apply_pgsphere_index(config)
+    elif config["index_type"] == "q3c":
+        apply_q3c_index(config)
+        
 def create_index_command():
     parser = argparse.ArgumentParser(description="Create indexes on a table in the database")
     

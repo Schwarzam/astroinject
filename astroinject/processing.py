@@ -65,7 +65,7 @@ def preprocess_table(
             info['name'] = info['name'].lower()
             table[info['name']] = np.char.replace(table[info['name']], info["pattern"], info["replacement"])
     
-    if config["mask_value"]:
+    if "mask_value" in config and config["mask_value"]:
         for col in table.colnames:
             if np.issubdtype(table[col].dtype, (np.number)):  # Only modify numeric columns
                 if "MaskedColumn" in str(type(table[col])):
