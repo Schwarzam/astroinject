@@ -43,6 +43,9 @@ def injection_procedure(filepath, types_map, config):
             if existing_ids:
                 control.warn(f"Row with ID {first_table_id} already exists in the database. Skipping {filepath}.")
                 pg_conn.close()
+                
+                del table, existing_ids, pg_conn
+                gc.collect()
                 return
         
         table = preprocess_table(table, config, types_map)

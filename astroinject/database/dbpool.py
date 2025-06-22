@@ -3,6 +3,7 @@ from psycopg2 import pool
 from psycopg2.extras import execute_values
 import io
 import numpy as np
+import csv
 
 from logpool import control
 
@@ -179,14 +180,16 @@ class PostgresConnectionManager:
         """
         conn = self.get_connection()
         try:
+            # Format records using the vectorized function    
+            records_np = np.array(records, dtype=object)
+            formatted_records = self.format_pg_array_vectorized(records_np)
+                
             with conn.cursor() as cur:
-                # Format records using the vectorized function
-                records_np = np.array(records, dtype=object)
-                
-                formatted_records = self.format_pg_array_vectorized(records_np)
-                
                 # Convert formatted records to CSV-like text in memory
-                csv_data = io.StringIO("\n".join(["\t".join(map(str, row)) for row in formatted_records]) + "\n")
+                csv_data = io.StringIO()
+                writer = csv.writer(csv_data, delimiter='\t', lineterminator='\n', quoting=csv.QUOTE_NONE, escapechar='\\')
+                writer.writerows(formatted_records)
+                csv_data.seek(0)
                 
                 # Copy data directly into the main table
                 copy_query = f"""COPY {table_name} ({', '.join(columns)}) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t', NULL 'None')"""
