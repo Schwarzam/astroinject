@@ -3,7 +3,9 @@ from astroinject.utils import first_valid_index
 
 # Function to infer PostgreSQL data types dynamically
 def infer_pg_type(value):
-    if isinstance(value, (np.int8, np.int16, np.int32, np.int64, int)):
+    if isinstance(value, (np.uint8, np.uint16, np.uint32, np.uint64)):
+        return "BIGINT"  # PostgreSQL não tem tipo unsigned, então use BIGINT para segurança
+    elif isinstance(value, (np.int8, np.int16, np.int32, np.int64, int)):
         if abs(value) > 2_147_483_647:  # PostgreSQL INTEGER limit
             return "BIGINT"
         else:

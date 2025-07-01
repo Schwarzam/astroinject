@@ -58,7 +58,7 @@ def preprocess_table(
     
     if config["rename_columns"]:
         for col in config["rename_columns"]:
-            table.rename_column(col, config["rename_columns"][col].lower())
+            table.rename_column(col.lower(), config["rename_columns"][col].lower())
     
     if config["patterns_to_replace"]:
         for info in config["patterns_to_replace"]:
