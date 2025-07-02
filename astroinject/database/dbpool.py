@@ -192,7 +192,7 @@ class PostgresConnectionManager:
                 csv_data.seek(0)
                 
                 # Copy data directly into the main table
-                copy_query = f"""COPY {table_name} ({', '.join(columns)}) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t', NULL 'None')"""
+                copy_query = f"""COPY {table_name} ({', '.join(columns)}) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t', NULL '')"""                
                 cur.copy_expert(copy_query, csv_data)
                 conn.commit()
                 print(f"✅ Inserted {len(records)} rows into {table_name} using COPY (no conflict handling).")

@@ -44,7 +44,13 @@ def injection_procedure(filepath, types_map, config):
                 control.warn(f"Row with ID {first_table_id} already exists in the database. Skipping {filepath}.")
                 pg_conn.close()
                 
-                del table, existing_ids, pg_conn
+                try: del table
+                except: pass
+                try: del existing_ids
+                except: pass
+                try: del pg_conn
+                except: pass
+                
                 gc.collect()
                 return
         
@@ -60,7 +66,13 @@ def injection_procedure(filepath, types_map, config):
 
     finally:
         # Libera memória explicitamente
-        del table, records, pg_conn
+        try: del table
+        except: pass
+        try: del records
+        except: pass
+        try: del pg_conn
+        except: pass
+            
         gc.collect()
 
 def create_table(filepath, config):
