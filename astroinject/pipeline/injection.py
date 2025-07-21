@@ -17,7 +17,7 @@ def injection_procedure(filepath, types_map, config):
         if len(table) == 0:
             control.warn(f"Table {filepath} is empty. Skipping...")
             return
-
+        
         # check if the first row already exists in the database because of id column
         if "id_col" in config and config["id_col"] is not None:
             id_col = config["id_col"]
@@ -26,7 +26,10 @@ def injection_procedure(filepath, types_map, config):
                     if config["rename_columns"][col] == config["id_col"]:
                         id_col = col
             
-            first_table_id = table[0][id_col]
+            try:
+                first_table_id = table[0][id_col.upper()]
+            except KeyError:
+                first_table_id = table[0][id_col.lower()]
             
             pg_conn = PostgresConnectionManager(**config["database"])
             
@@ -62,7 +65,7 @@ def injection_procedure(filepath, types_map, config):
         pg_conn.close()
 
     except Exception as e:
-        control.error(f"Error while injecting {filepath}: {e}")
+        control.critical(f"Error while injecting {filepath}: {e}")
 
     finally:
         # Libera memória explicitamente
