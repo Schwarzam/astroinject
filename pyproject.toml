@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astroinject"
+version = "1.0"
+authors = [{ name = "Gustavo Schwarz", email = "gustavo.b.schwarz@gmail.com" }]
+requires-python = ">=3.8"
+dependencies = [
+  "numpy",
+  "pandas",
+  "psycopg2-binary",
+  "sqlalchemy",
+  "pyyaml",
+  "astropy",
+  "logpool"
+]
+
+[project.scripts]
+astroinject   = "astroinject.main:injection"
+map_table     = "astroinject.main:map_table_command"
+create_index  = "astroinject.main:create_index_command"
+execute_query = "astroinject.main:execute_query_command"
+create_schema = "astroinject.main:create_schema_command"

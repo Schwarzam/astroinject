@@ -69,7 +69,7 @@ def preprocess_table(
         for col in table.colnames:
             if np.issubdtype(table[col].dtype, (np.number)):  # Only modify numeric columns
                 if "MaskedColumn" in str(type(table[col])):
-                    control.warn(f"column {col} is already masked, cannot mask again")
+                    # control.warn(f"column {col} is already masked, cannot mask again")
                     continue
                 else:
                     table[col] = MaskedColumn(table[col], mask=(table[col] == config["mask_value"]))  

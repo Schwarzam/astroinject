@@ -79,16 +79,19 @@ def injection_procedure(filepath, types_map, config):
         gc.collect()
 
 def create_table(filepath, config):
-    table = open_table(filepath, config)
-    table = preprocess_table(table, config)
+    try:
+        table = open_table(filepath, config)
+        table = preprocess_table(table, config)
 
-    create_query = generate_create_table_query(config["tablename"], table, config["id_col"])
-    control.info(f"Creating table {config['tablename']} in the database")
-    control.info(f"Query: \n{create_query}")
+        create_query = generate_create_table_query(config["tablename"], table, config["id_col"])
+        control.info(f"Creating table {config['tablename']} in the database")
+        control.info(f"Query: \n{create_query}")
 
-    pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
-    pg_conn.execute_query(create_query)
-    pg_conn.close()
+        pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
+        pg_conn.execute_query(create_query)
+        pg_conn.close()
+    except Exception as e:
+        print(e)
 
 def parallel_insertion(files, config):
     """

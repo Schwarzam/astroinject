@@ -35,13 +35,39 @@ def injection():
     
     parallel_insertion(files, config)
     
+    if "additional_btree_index" in config and config["additional_btree_index"]:
+        control.info("creating additional B-Tree index")
+        apply_btree_index(config)
+    
     if not "index_type" in config or config["index_type"] is None:
         control.info("no index type specified, skipping index creation")
     elif config["index_type"] == "pgsphere":
         apply_pgsphere_index(config)
     elif config["index_type"] == "q3c":
         apply_q3c_index(config)
+
+def create_schema_command():
+    from astroinject.database.dbpool import PostgresConnectionManager
+    from astroinject.database.gen_base_queries import vacuum_query
+    parser = argparse.ArgumentParser(description="Create a table in the database")
+    
+    parser.add_argument("-b", "--baseconfig", help="Base database config file")
+    parser.add_argument("-s", "--schema", help="Schema to create (format: schema)")
+
+    args = parser.parse_args()
+    config = load_config(args.baseconfig)
+    
+    # create query 
+    query = "CREATE SCHEMA IF NOT EXISTS {schema};".format(schema=args.schema)
+    
+    pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
+    control.info(f"executing:\n{query}")
+    pg_conn.execute_query(query)
+    pg_conn.close()
+    control.info("done creating schema.")
+    
         
+
 def create_index_command():
     parser = argparse.ArgumentParser(description="Create indexes on a table in the database")
     
