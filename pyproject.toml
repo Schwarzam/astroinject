@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "astroinject"
-version = "1.0"
+version = "1.1"
 authors = [{ name = "Gustavo Schwarz", email = "gustavo.b.schwarz@gmail.com" }]
 requires-python = ">=3.8"
 dependencies = [
@@ -27,3 +27,6 @@ create_index  = "astroinject.main:create_index_command"
 execute_query = "astroinject.main:execute_query_command"
 create_schema = "astroinject.main:create_schema_command"
 index_schema = "astroinject.pipeline.commands:index_schema_pgsphere_command"
+
+# python -m build
+# python -m twine upload dist/*
