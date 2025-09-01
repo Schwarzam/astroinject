@@ -11,8 +11,14 @@ import gc
 
 def injection_procedure(filepath, types_map, config):
     try:
+        
+        if isinstance(filepath, str):
+            table = open_table(filepath, config)
+        else:
+            table = filepath
+            filepath = "Memory file."
+        
         control.info(f"Injecting table {filepath} into the database")
-        table = open_table(filepath, config)
 
         if len(table) == 0:
             control.warn(f"Table {filepath} is empty. Skipping...")
@@ -79,8 +85,16 @@ def injection_procedure(filepath, types_map, config):
         gc.collect()
 
 def create_table(filepath, config):
+    """
+    Filepath or astropy.table.Table
+    """
     try:
-        table = open_table(filepath, config)
+        if isinstance(filepath, str):
+            table = open_table(filepath, config)
+        else:
+            table = filepath
+            filepath = "Memory file."
+
         table = preprocess_table(table, config)
 
         create_query = generate_create_table_query(config["tablename"], table, config["id_col"])
