@@ -1,0 +1,9 @@
+database:
+  dbname: splus
+  user: gustavo
+  password: asdflkjh
+  host: 192.168.10.22
+  port: 5432
+
+general:
+  injection_processes: 15

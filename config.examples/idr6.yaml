@@ -1,0 +1,16 @@
+folder: "/storage/splus/Catalogues/iDR6"
+pattern: "*.fits"
+
+tablename: "idr6.idr6"
+
+force_cast_correction: False # this corrects tables that have types different from first ref table
+id_col: "id"
+ra_col: "ra"
+dec_col: "dec"
+index_type: "pgsphere"
+additional_btree_index: ["field"]
+
+rename_columns: {} # {old_name: new_name}
+delete_columns: [] # [col1, col2, ...]
+patterns_to_replace: [] # {"name": colname, "pattern": "pattern", "replacement": "replace"}
+mask_value: null # Value to mask, should be null if already has masked values (nans)
