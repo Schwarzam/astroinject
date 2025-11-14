@@ -74,6 +74,47 @@ def preprocess_table(
                 else:
                     table[col] = MaskedColumn(table[col], mask=(table[col] == config["mask_value"]))  
     
+    # please make all columns names safe
+    patterns = {
+        " ": "_",
+        "-": "_",
+        "/": "_",
+        "\\": "_",
+        ".": "_",
+        ",": "_",
+        ";": "_",
+        ":": "_",
+        "'": "",
+        "\"": "",
+        "(": "",
+        ")": "",
+        "[": "",
+        "]": "",
+        "{": "",
+        "}": "",
+        "?": "",
+        "!": "",
+        "@": "at",
+        "#": "number",
+        "$": "dollar",
+        "%": "percent",
+        "^": "",
+        "&": "and",
+        "*": "",
+        "+": "plus",
+        "=": "equals",
+        "<": "lt",
+        ">": "gt",
+        "~": "",
+        "`": ""
+    }
+    for col in table.colnames:
+        new_col = col
+        for pattern in patterns:
+            new_col = new_col.replace(pattern, patterns[pattern])
+        if new_col != col:
+            table.rename_column(col, new_col)
+    
     table = convert_str_arrays_to_arrays(table)
     # TODO: Add type optimization
     #table = optimize_table_types(table)

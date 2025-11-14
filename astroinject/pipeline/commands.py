@@ -4,33 +4,36 @@ from astroinject.config import load_config
 from logpool import control
 from astroinject.pipeline.apply_index import apply_pgsphere_index, apply_q3c_index, apply_btree_index
 
-def index_schema_pgsphere_command():
+def index_schema():
     """
-    Create / recreate / drop pgsphere GiST indexes across a schema or a single table.
+    Create / recreate / drop spatial indexes (pgsphere GiST or q3c) across a schema or a single table.
 
     Examples:
       # create missing pgsphere indexes across a schema
-      astroinject index_schema_pgsphere -b base.yaml -s public
+      astroinject index_schema_pgsphere -b base.yaml -s public --index-type pgsphere
+
+      # create missing q3c indexes across a schema
+      astroinject index_schema_pgsphere -b base.yaml -s public --index-type q3c
 
       # restrict by name pattern
       astroinject index_schema_pgsphere -b base.yaml -s sky --name_like 'obj_%%'
 
       # rebuild (drop+create) all pgsphere indexes in schema
-      astroinject index_schema_pgsphere -b base.yaml -s cat --recreate
+      astroinject index_schema_pgsphere -b base.yaml -s cat --recreate --index-type pgsphere
 
-      # only drop all pgsphere indexes (no re-create, no PK)
-      astroinject index_schema_pgsphere -b base.yaml -s cat --drop_only
+      # only drop all q3c indexes (no re-create, no PK)
+      astroinject index_schema_pgsphere -b base.yaml -s cat --drop_only --index-type q3c
 
       # operate on a single table
-      astroinject index_schema_pgsphere -b base.yaml -s public.mytable --recreate
-      astroinject index_schema_pgsphere -b base.yaml -s public.mytable --drop_only
+      astroinject index_schema_pgsphere -b base.yaml -s public.mytable --recreate --index-type pgsphere
+      astroinject index_schema_pgsphere -b base.yaml -s public.mytable --drop_only  --index-type q3c
     """
     import sys
     import psycopg2
     from psycopg2 import sql
 
     parser = argparse.ArgumentParser(
-        description="Manage pgsphere GiST indexes (create/recreate/drop) across a schema or a single table.",
+        description="Manage spatial indexes (pgsphere GiST or q3c) across a schema or a single table.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -46,12 +49,14 @@ def index_schema_pgsphere_command():
                         help="Candidate names for DEC column (comma/semicolon/pipe-separated)")
     parser.add_argument("--include_partitions", action="store_true",
                         help="Also consider partitioned tables (relkind='p').")
+    parser.add_argument("--index-type", choices=["pgsphere", "q3c"], default="pgsphere",
+                        help="Index type to manage (pgsphere or q3c).")
     parser.add_argument("--recreate", action="store_true",
-                        help="Drop existing pgsphere GiST indexes and recreate them.")
+                        help="Drop existing spatial indexes and recreate them.")
     parser.add_argument("--ensure_pk", action="store_true",
                         help="If table has no PRIMARY KEY but has a NOT NULL 'id' column, make it the PK via a CONCURRENT unique index.")
     parser.add_argument("--drop_only", action="store_true",
-                        help="ONLY drop existing pgsphere GiST indexes; do NOT recreate; ignores --ensure_pk.")
+                        help="ONLY drop existing spatial indexes; do NOT recreate; ignores --ensure_pk.")
     parser.add_argument("--dry_run", action="store_true",
                         help="Print intended actions without executing any DDL.")
     args = parser.parse_args()
@@ -78,6 +83,7 @@ def index_schema_pgsphere_command():
         single_table_mode = False
 
     # --- queries ---
+    # pgsphere: GiST index with gist_spoint_ops or definition mentioning spoint(...)
     PGS_INDEX_QUERY = """
     SELECT i.relname AS index_name
     FROM   pg_index ix
@@ -91,9 +97,22 @@ def index_schema_pgsphere_command():
     AND  t.relname = %s
     AND  am.amname = 'gist'
     AND (
-            opc.opcname = 'gist_spoint_ops'                 -- canonical pgsphere opclass
-            OR pg_get_indexdef(ix.indexrelid) ILIKE '%%spoint(%%'  -- heuristic fallback
+            opc.opcname = 'gist_spoint_ops'
+            OR pg_get_indexdef(ix.indexrelid) ILIKE '%%spoint(%%'
         )
+    GROUP BY i.relname, ix.indexrelid
+    """
+
+    # q3c: any index (typically btree) whose definition uses q3c_ang2ipix(ra, dec)
+    Q3C_INDEX_QUERY = """
+    SELECT i.relname AS index_name
+    FROM   pg_index ix
+    JOIN   pg_class  i   ON i.oid = ix.indexrelid
+    JOIN   pg_class  t   ON t.oid = ix.indrelid
+    JOIN   pg_namespace n ON n.oid = t.relnamespace
+    WHERE  n.nspname = %s
+    AND    t.relname = %s
+    AND    pg_get_indexdef(ix.indexrelid) ILIKE '%%q3c_ang2ipix(%%'
     GROUP BY i.relname, ix.indexrelid
     """
 
@@ -126,9 +145,10 @@ def index_schema_pgsphere_command():
     LIMIT 1
     """
 
-    def list_pgsphere_indexes(conn, schema, table):
+    def list_spatial_indexes(conn, schema, table):
+        query = PGS_INDEX_QUERY if args.index_type == "pgsphere" else Q3C_INDEX_QUERY
         with conn.cursor() as cur:
-            cur.execute(PGS_INDEX_QUERY, (schema, table))
+            cur.execute(query, (schema, table))
             return [r[0] for r in cur.fetchall()]
 
     def has_primary_key(conn, schema, table):
@@ -150,15 +170,17 @@ def index_schema_pgsphere_command():
         return ra, dec
 
     def drop_indexes(conn, qualified_index_names):
-        from psycopg2 import sql
+        from psycopg2 import sql as _sql
         for qname in qualified_index_names:
             if "." in qname:
                 sch, idx = qname.split(".", 1)
-                stmt = sql.SQL("DROP INDEX CONCURRENTLY IF EXISTS {}.{}").format(
-                    sql.Identifier(sch), sql.Identifier(idx)
+                stmt = _sql.SQL("DROP INDEX CONCURRENTLY IF EXISTS {}.{}").format(
+                    _sql.Identifier(sch), _sql.Identifier(idx)
                 )
             else:
-                stmt = sql.SQL("DROP INDEX CONCURRENTLY IF EXISTS {}").format(sql.Identifier(qname))
+                stmt = _sql.SQL("DROP INDEX CONCURRENTLY IF EXISTS {}").format(
+                    _sql.Identifier(qname)
+                )
             with conn.cursor() as cur:
                 cur.execute(stmt)
 
@@ -181,24 +203,39 @@ def index_schema_pgsphere_command():
             else:
                 uniq_idx = f"ux_{schema}_{table}_id"
                 if args.dry_run:
-                    control.info(f"[dry-run] CREATE UNIQUE INDEX CONCURRENTLY {schema}.{uniq_idx} ON {schema}.{table} ({id_orig})")
+                    control.info(
+                        f"[dry-run] CREATE UNIQUE INDEX CONCURRENTLY {schema}.{uniq_idx} "
+                        f"ON {schema}.{table} ({id_orig})"
+                    )
                 else:
-                    cur.execute(sql.SQL("CREATE UNIQUE INDEX CONCURRENTLY {} ON {}.{} ({})")
-                                .format(sql.Identifier(uniq_idx),
-                                        sql.Identifier(schema),
-                                        sql.Identifier(table),
-                                        sql.Identifier(id_orig)))
+                    cur.execute(
+                        sql.SQL("CREATE UNIQUE INDEX CONCURRENTLY {} ON {}.{} ({})")
+                        .format(
+                            sql.Identifier(uniq_idx),
+                            sql.Identifier(schema),
+                            sql.Identifier(table),
+                            sql.Identifier(id_orig),
+                        )
+                    )
         pkey_name = f"{table}_pkey"
         if args.dry_run:
-            control.info(f"[dry-run] ALTER TABLE {schema}.{table} ADD CONSTRAINT {pkey_name} PRIMARY KEY USING INDEX {uniq_idx}")
+            control.info(
+                f"[dry-run] ALTER TABLE {schema}.{table} "
+                f"ADD CONSTRAINT {pkey_name} PRIMARY KEY USING INDEX {uniq_idx}"
+            )
             return "would_attach_pk"
         else:
             with conn.cursor() as cur:
-                cur.execute(sql.SQL("ALTER TABLE {}.{} ADD CONSTRAINT {} PRIMARY KEY USING INDEX {}")
-                            .format(sql.Identifier(schema),
-                                    sql.Identifier(table),
-                                    sql.Identifier(pkey_name),
-                                    sql.Identifier(uniq_idx)))
+                cur.execute(
+                    sql.SQL(
+                        "ALTER TABLE {}.{} ADD CONSTRAINT {} PRIMARY KEY USING INDEX {}"
+                    ).format(
+                        sql.Identifier(schema),
+                        sql.Identifier(table),
+                        sql.Identifier(pkey_name),
+                        sql.Identifier(uniq_idx),
+                    )
+                )
             return "attached_pk"
 
     # connect
@@ -219,13 +256,32 @@ def index_schema_pgsphere_command():
     if not args.drop_only:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT 1 FROM pg_extension WHERE extname IN ('pgsphere','pg_sphere') LIMIT 1")
-                if cur.fetchone() is None:
-                    control.info("pgsphere extension is not installed. Run: CREATE EXTENSION pgsphere;")
-                    conn.close()
-                    sys.exit(1)
+                if args.index_type == "pgsphere":
+                    cur.execute(
+                        "SELECT 1 FROM pg_extension "
+                        "WHERE extname IN ('pgsphere','pg_sphere') LIMIT 1"
+                    )
+                    if cur.fetchone() is None:
+                        control.info(
+                            "pgsphere extension is not installed. "
+                            "Run: CREATE EXTENSION pgsphere;"
+                        )
+                        conn.close()
+                        sys.exit(1)
+                else:  # q3c
+                    cur.execute(
+                        "SELECT 1 FROM pg_extension "
+                        "WHERE extname = 'q3c' LIMIT 1"
+                    )
+                    if cur.fetchone() is None:
+                        control.info(
+                            "q3c extension is not installed. "
+                            "Run: CREATE EXTENSION q3c;"
+                        )
+                        conn.close()
+                        sys.exit(1)
         except Exception as e:
-            control.info(f"Failed to verify pgsphere extension: {e}")
+            control.info(f"Failed to verify {args.index_type} extension: {e}")
             conn.close()
             sys.exit(1)
 
@@ -263,7 +319,8 @@ def index_schema_pgsphere_command():
 
     control.info(
         f"Target: {target_schema}{('.' + target_table) if single_table_mode else ''} ; "
-        f"count={len(tables)} ; options: drop_only={args.drop_only}, recreate={args.recreate}, "
+        f"count={len(tables)} ; options: index_type={args.index_type}, "
+        f"drop_only={args.drop_only}, recreate={args.recreate}, "
         f"ensure_pk={args.ensure_pk and not args.drop_only}, dry_run={args.dry_run}"
     )
 
@@ -271,20 +328,28 @@ def index_schema_pgsphere_command():
 
     for i, tbl in enumerate(tables, start=1):
         try:
-            existing = list_pgsphere_indexes(conn, target_schema, tbl)
+            existing = list_spatial_indexes(conn, target_schema, tbl)
             qnames = [f"{target_schema}.{name}" if "." not in name else name for name in existing]
 
             # drop-only path
             if args.drop_only:
                 if existing:
                     if args.dry_run:
-                        control.info(f"[dry-run] would drop pgsphere index(es) on {target_schema}.{tbl}: {existing}")
+                        control.info(
+                            f"[dry-run] would drop {args.index_type} index(es) "
+                            f"on {target_schema}.{tbl}: {existing}"
+                        )
                     else:
                         drop_indexes(conn, qnames)
                         dropped += len(existing)
-                    control.info(f"[{i}] {target_schema}.{tbl}: dropped {len(existing)} pgsphere index(es).")
+                    control.info(
+                        f"[{i}] {target_schema}.{tbl}: dropped "
+                        f"{len(existing)} {args.index_type} index(es)."
+                    )
                 else:
-                    control.info(f"[{i}] {target_schema}.{tbl}: no pgsphere index found — nothing to drop.")
+                    control.info(
+                        f"[{i}] {target_schema}.{tbl}: no {args.index_type} index found — nothing to drop."
+                    )
                 continue  # skip all other actions
 
             # optional PK attach (safe path only)
@@ -292,31 +357,43 @@ def index_schema_pgsphere_command():
                 pk_status = ensure_pk_on_id(conn, target_schema, tbl)
                 if pk_status in ("attached_pk", "would_attach_pk"):
                     pks_attached += 1
-                    control.info(f"[{i}] {target_schema}.{tbl}: primary key on id attached.")
+                    control.info(
+                        f"[{i}] {target_schema}.{tbl}: primary key on id attached."
+                    )
                 else:
                     pks_skipped += 1
-                    control.info(f"[{i}] {target_schema}.{tbl}: skipped PK ({pk_status}).")
+                    control.info(
+                        f"[{i}] {target_schema}.{tbl}: skipped PK ({pk_status})."
+                    )
 
             # recreate: drop existing first
             if args.recreate and existing:
                 if args.dry_run:
-                    control.info(f"[dry-run] would drop pgsphere index(es) on {target_schema}.{tbl}: {existing}")
+                    control.info(
+                        f"[dry-run] would drop {args.index_type} index(es) "
+                        f"on {target_schema}.{tbl}: {existing}"
+                    )
                 else:
                     drop_indexes(conn, qnames)
                     dropped += len(existing)
                 existing = []
 
-            # already has pgsphere index?
+            # already has index?
             if existing:
                 skipped_exists += 1
-                control.info(f"[{i}] {target_schema}.{tbl}: pgsphere index already exists ({existing}) — skipping create.")
+                control.info(
+                    f"[{i}] {target_schema}.{tbl}: {args.index_type} index already "
+                    f"exists ({existing}) — skipping create."
+                )
                 continue
 
             # create new if we got here
             ra_col, dec_col = find_ra_dec(conn, target_schema, tbl)
             if not (ra_col and dec_col):
                 skipped_missing_cols += 1
-                control.info(f"[{i}] {target_schema}.{tbl}: could not find RA/DEC columns — skipping.")
+                control.info(
+                    f"[{i}] {target_schema}.{tbl}: could not find RA/DEC columns — skipping."
+                )
                 continue
 
             cfg_to_apply = dict(base_config)
@@ -326,10 +403,19 @@ def index_schema_pgsphere_command():
             cfg_to_apply["additional_btree_index"] = []
 
             if args.dry_run:
-                control.info(f"[dry-run] would create pgsphere GiST index on {target_schema}.{tbl} (ra={ra_col}, dec={dec_col})")
+                control.info(
+                    f"[dry-run] would create {args.index_type} index on "
+                    f"{target_schema}.{tbl} (ra={ra_col}, dec={dec_col})"
+                )
             else:
-                control.info(f"[{i}] {target_schema}.{tbl}: creating pgsphere GiST index (ra={ra_col}, dec={dec_col})")
-                apply_pgsphere_index(cfg_to_apply)
+                control.info(
+                    f"[{i}] {target_schema}.{tbl}: creating {args.index_type} index "
+                    f"(ra={ra_col}, dec={dec_col})"
+                )
+                if args.index_type == "pgsphere":
+                    apply_pgsphere_index(cfg_to_apply)
+                else:
+                    apply_q3c_index(cfg_to_apply)
                 created += 1
 
         except Exception as e:

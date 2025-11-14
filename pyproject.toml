@@ -26,7 +26,7 @@ map_table     = "astroinject.main:map_table_command"
 create_index  = "astroinject.main:create_index_command"
 execute_query = "astroinject.main:execute_query_command"
 create_schema = "astroinject.main:create_schema_command"
-index_schema = "astroinject.pipeline.commands:index_schema_pgsphere_command"
+index_schema = "astroinject.pipeline.commands:index_schema"
 
 # python -m build
 # python -m twine upload dist/*
