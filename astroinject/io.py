@@ -20,12 +20,14 @@ def open_table(table_name, config):
 	if format == "gaia":
 		control.info(f"reading table {table_name} with format {format}")
 	
-		with gzip.open(table_name, "rt") as f:
-			table = Table.read(
-					f.read(), 
-					format="ascii.ecsv", 
-					fill_values=[('null', 99), ('nan', 99)]
-			)
+		table = Table.read(
+			table_name,                # e.g. "gaia_chunk.ecsv.gz"
+			format="ascii.ecsv",
+			guess=False,               # skip format guessing
+			fill_values=[('null', 99), ('nan', 99)],
+		)
+		return table
+	
 			
 	if format == "fits":
 		table = Table.read(table_name)
