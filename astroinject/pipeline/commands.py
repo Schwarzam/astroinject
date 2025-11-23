@@ -428,3 +428,106 @@ def index_schema():
         f"PK attached: {pks_attached}, PK skipped: {pks_skipped}, Failed: {failed}"
     )
     conn.close()
+    
+    
+def vacuum_schema():
+    """
+    VACUUM ANALYZE all tables in a schema.
+
+    Examples:
+      # vacuum analyze all tables in a schema
+      astroinject vacuum_schema -b base.yaml -s public
+
+      # restrict by name pattern
+      astroinject vacuum_schema -b base.yaml -s sky --name_like 'obj_%%'
+
+      # include partitioned tables
+      astroinject vacuum_schema -b base.yaml -s cat --include_partitions
+    """
+    import sys
+    import psycopg2
+    from psycopg2 import sql
+
+    parser = argparse.ArgumentParser(
+        description="VACUUM ANALYZE all tables in a schema.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    parser.add_argument("-b", "--baseconfig", required=True, help="Base database config file")
+    parser.add_argument("-s", "--schema", required=True, help="Schema name to vacuum")
+    parser.add_argument("--name_like", help="SQL LIKE filter for table names")
+    parser.add_argument("--include_partitions", action="store_true",
+                        help="Also consider partitioned tables (relkind='p').")
+    parser.add_argument("--dry_run", action="store_true",
+                        help="Print intended actions without executing any DDL.")
+    args = parser.parse_args()
+
+    base_config = load_config(args.baseconfig)
+
+    # connect
+    cfg = base_config.get("database", base_config)
+    if "dsn" in cfg:
+        conn = psycopg2.connect(cfg["dsn"])
+    else:
+        conn = psycopg2.connect(
+            host=cfg.get("host"),
+            port=cfg.get("port"),
+            dbname=cfg.get("dbname"),
+            user=cfg.get("user"),
+            password=cfg.get("password"),
+        )
+    conn.autocommit = True
+
+    # figure out tables to process
+    RELKINDS = ["'r'"]
+    if args.include_partitions:
+        RELKINDS.append("'p'")
+    relkind_clause = ",".join(RELKINDS)
+    LIST_TABLES = f"""
+    SELECT t.relname
+    FROM   pg_class t
+    JOIN   pg_namespace n ON n.oid = t.relnamespace
+    WHERE  n.nspname = %s
+      AND  t.relkind IN ({relkind_clause})
+      {{name_filter}}
+    ORDER BY t.relname;
+    """
+    params = [args.schema]
+    name_filter_sql = ""
+    if args.name_like:
+        name_filter_sql = "AND t.relname LIKE %s"
+        params.append(args.name_like)
+    list_sql = LIST_TABLES.format(name_filter=name_filter_sql)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(list_sql, params)
+            tables = [r[0] for r in cur.fetchall()]
+    except Exception as e:
+        control.info(f"Could not list tables in schema '{args.schema}': {e}")
+        conn.close()
+        sys.exit(1)
+        
+    control.info(
+        f"Target: {args.schema} ; count={len(tables)} ; "
+        f"options: include_partitions={args.include_partitions}, dry_run={args.dry_run}"
+    )
+    vacuumed=failed=0
+    for i, tbl in enumerate(tables, start=1):
+        try:
+            if args.dry_run:
+                control.info(f"[dry-run] would VACUUM ANALYZE {args.schema}.{tbl}")
+            else:
+                control.info(f"[{i}] VACUUM ANALYZE {args.schema}.{tbl}")
+                with conn.cursor() as cur:
+                    cur.execute(
+                        sql.SQL("VACUUM ANALYZE {}.{}").format(
+                            sql.Identifier(args.schema),
+                            sql.Identifier(tbl),
+                        )
+                    )
+                vacuumed += 1
+        except Exception as e:
+            failed += 1
+            control.info(f"[{i}] {args.schema}.{tbl}: failed with error: {e}")
+    control.info(f"Vacuumed: {vacuumed}, Failed: {failed}")
+    conn.close()

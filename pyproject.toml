@@ -27,6 +27,7 @@ create_index  = "astroinject.main:create_index_command"
 execute_query = "astroinject.main:execute_query_command"
 create_schema = "astroinject.main:create_schema_command"
 index_schema = "astroinject.pipeline.commands:index_schema"
+vacuum_schema = "astroinject.pipeline.commands:vacuum_schema"
 
 # python -m build
 # python -m twine upload dist/*
