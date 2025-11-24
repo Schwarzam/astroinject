@@ -20,7 +20,7 @@ def apply_pgsphere_index(config):
     control.info("done applying indexes.")
     
 def apply_q3c_index(config):
-    index_query = make_q3c_index(config["tablename"], config["ra_col"], config["dec_col"])
+    index_query, index_name = make_q3c_index(config["tablename"], config["ra_col"], config["dec_col"])
     #vacuum_q = vacuum_query(config["tablename"])
     
     pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
@@ -28,8 +28,11 @@ def apply_q3c_index(config):
     
     pg_conn.execute_query(index_query)
     
-    control.info(f"executing:\n{vacuum_q}")
-    pg_conn.execute_query_wt_tblock(vacuum_q)
+    control.info(f"executing cluster")
+    pg_conn.execute_query_wt_tblock(f"""CLUSTER {config["tablename"]} USING {index_name};""")
+    
+    control.info(f"executing analyze")
+    pg_conn.execute_query_wt_tblock(f"""ANALYZE {config["tablename"]};""")
     
     pg_conn.close()
     control.info("done applying indexes.")
