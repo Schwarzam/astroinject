@@ -21,7 +21,7 @@ def apply_pgsphere_index(config):
     
 def apply_q3c_index(config):
     index_query = make_q3c_index(config["tablename"], config["ra_col"], config["dec_col"])
-    vacuum_q = vacuum_query(config["tablename"])
+    #vacuum_q = vacuum_query(config["tablename"])
     
     pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
     control.info(f"executing:\n{index_query}")

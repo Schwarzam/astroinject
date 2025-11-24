@@ -24,6 +24,8 @@ def make_q3c_index(table, ra_col, dec_col):
     index_name = f"{wtdtable}_{ra_col}_{dec_col}_q3c_idx"
 
     query = f"""CREATE INDEX {index_name} 
-    ON {table} (q3c_ang2ipix("{ra_col}", "{dec_col}"));"""
+    ON {table} (q3c_ang2ipix("{ra_col}", "{dec_col}"));
+    CLUSTER {table} USING {index_name};
+    ANALYZE {table};"""
 
     return query
