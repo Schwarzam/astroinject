@@ -28,8 +28,8 @@ def apply_q3c_index(config):
     
     pg_conn.execute_query(index_query)
     
-    control.info(f"executing cluster")
-    pg_conn.execute_query_wt_tblock(f"""CLUSTER {config["tablename"]} USING {index_name};""")
+    # control.info(f"executing cluster")
+    # pg_conn.execute_query_wt_tblock(f"""CLUSTER {config["tablename"]} USING {index_name};""")
     
     control.info(f"executing analyze")
     pg_conn.execute_query_wt_tblock(f"""ANALYZE {config["tablename"]};""")
