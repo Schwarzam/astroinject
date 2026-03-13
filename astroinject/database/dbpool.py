@@ -5,7 +5,7 @@ import io
 import numpy as np
 import csv
 
-from logpool import control
+import logpool as control
 
 class PostgresConnectionManager:
     """

@@ -2,7 +2,7 @@ from astropy.table import Table
 import gzip
 
 import pandas as pd
-from logpool import control
+import logpool as control
 
 from astropy.table import Table, Column
 from astropy.io import fits

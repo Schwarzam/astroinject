@@ -1,4 +1,4 @@
-from logpool import control
+import logpool as control
 from astroinject.io import open_table
 from astroinject.processing import preprocess_table
 from astroinject.database.utils import convert_table_to_postgres_records

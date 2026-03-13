@@ -1,7 +1,7 @@
 from astroinject.database.dbpool import PostgresConnectionManager
 
 import numpy as np
-from logpool import control 
+import logpool as control 
 
 from astropy.table import MaskedColumn 
 

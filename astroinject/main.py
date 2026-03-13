@@ -9,7 +9,7 @@ from astroinject.config import load_config
 from astroinject.pipeline.map_tap_schema import map_table
 
 import warnings
-from logpool import control
+import logpool as control
 
 warnings.filterwarnings("ignore")
 

@@ -1,4 +1,4 @@
-from logpool import control
+import logpool as control
 from astroinject.database.dbpool import PostgresConnectionManager
 
 def map_table(config):
