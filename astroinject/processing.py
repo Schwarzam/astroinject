@@ -1,5 +1,5 @@
 import numpy as np
-from logpool import control
+import logpool as control
 from astropy.table import MaskedColumn
 
 from astroinject.utils import first_valid_index

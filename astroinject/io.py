@@ -2,7 +2,11 @@ from astropy.table import Table
 import gzip
 
 import pandas as pd
-from logpool import control
+import logpool as control
+
+from astropy.table import Table, Column
+from astropy.io import fits
+import numpy as np
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -28,6 +32,15 @@ def open_table(table_name, config):
 		)
 		return table
 	
+	if format == "desi_coadd":
+		control.info(f"reading DESI coadd file {table_name}")
+		table = _read_desi_coadd_as_table(table_name)
+		return table
+
+	if format == "sdss_boss_dr19_spectrum":
+		control.info(f"reading SDSS/BOSS DR19 spectrum file {table_name}")
+		table = _read_sdss_boss_dr19_spectrum_as_table(table_name)
+		return table
 			
 	if format == "fits":
 		table = Table.read(table_name)
@@ -46,3 +59,297 @@ def open_table(table_name, config):
 		raise ValueError(f"Unsupported format: {format}")
 	return table
 
+
+
+def _read_desi_coadd_as_table(path):
+	"""
+	Read DESI DR1 coadd FITS file and return a Table with:
+
+	  - FIBERMAP metadata (with Legacy Surveys flux columns renamed)
+	  - REDSHIFTS science results (SPECTYPE, Z, etc.)
+	  - wave_<b/r/z> (object column: same array in each row)
+	  - flux_<b/r/z>, ivar_<b/r/z> (per-fiber 1D arrays)
+	"""
+	hd = fits.open(path, memmap=True)
+
+	try:
+		if "FIBERMAP" not in hd:
+			raise RuntimeError(f"DESI file {path} has no FIBERMAP extension.")
+
+		fibermap = Table(hd["FIBERMAP"].data)
+		n_fiber = len(fibermap)
+
+		# --- get wavelength grid for each band ---
+		def get_wave(hd, band):
+			name = f"{band.upper()}_WAVELENGTH"
+			if name in hd:
+				return np.array(hd[name].data, dtype="float32")
+
+			flux_hdu = f"{band.upper()}_FLUX"
+			if flux_hdu not in hd:
+				return None
+			h = hd[flux_hdu].header
+			data = hd[flux_hdu].data
+			crval = h.get("CRVAL1")
+			cdelt = h.get("CDELT1")
+			if crval is None or cdelt is None:
+				return None
+			npix = data.shape[1]
+			pix = np.arange(npix, dtype="float32")
+			return (crval + cdelt * pix).astype("float32")
+
+		# --- rename Legacy Surveys flux columns to avoid clashes ---
+		rename_map = {
+			"FLUX_G": "ls_flux_g",
+			"FLUX_R": "ls_flux_r",
+			"FLUX_Z": "ls_flux_z",
+			"FLUX_W1": "ls_flux_w1",
+			"FLUX_W2": "ls_flux_w2",
+			"FLUX_IVAR_G": "ls_flux_ivar_g",
+			"FLUX_IVAR_R": "ls_flux_ivar_r",
+			"FLUX_IVAR_Z": "ls_flux_ivar_z",
+			"FLUX_IVAR_W1": "ls_flux_ivar_w1",
+			"FLUX_IVAR_W2": "ls_flux_ivar_w2",
+			"FIBERFLUX_G": "ls_fiberflux_g",
+			"FIBERFLUX_R": "ls_fiberflux_r",
+			"FIBERFLUX_Z": "ls_fiberflux_z",
+			"FIBERTOTFLUX_G": "ls_fibertotflux_g",
+			"FIBERTOTFLUX_R": "ls_fibertotflux_r",
+			"FIBERTOTFLUX_Z": "ls_fibertotflux_z",
+		}
+		for old, new in rename_map.items():
+			if old in fibermap.colnames:
+				fibermap.rename_column(old, new)
+
+		# --- attach spectral arrays ---
+		bands = ("b", "r", "z")
+		for band in bands:
+			flux_hdu = f"{band.upper()}_FLUX"
+			ivar_hdu = f"{band.upper()}_IVAR"
+
+			# flux_<band>
+			if flux_hdu in hd:
+				flux_2d = np.asarray(hd[flux_hdu].data, dtype="float32")
+				fibermap[f"flux_{band}"] = Column(
+					[flux_2d[i, :].copy() for i in range(n_fiber)],
+					name=f"flux_{band}",
+					dtype=object,
+				)
+			else:
+				fibermap[f"flux_{band}"] = Column(
+					[None] * n_fiber, name=f"flux_{band}", dtype=object
+				)
+
+			# ivar_<band>
+			if ivar_hdu in hd:
+				ivar_2d = np.asarray(hd[ivar_hdu].data, dtype="float32")
+				fibermap[f"ivar_{band}"] = Column(
+					[ivar_2d[i, :].copy() for i in range(n_fiber)],
+					name=f"ivar_{band}",
+					dtype=object,
+				)
+			else:
+				fibermap[f"ivar_{band}"] = Column(
+					[None] * n_fiber, name=f"ivar_{band}", dtype=object
+				)
+
+			# wave_<band> (same array for all fibers)
+			wave = get_wave(hd, band)
+			fibermap[f"wave_{band}"] = Column(
+				[wave] * n_fiber, name=f"wave_{band}", dtype=object
+			)
+
+		# --- RA/DEC column standardisation ---
+		if "TARGET_RA" in fibermap.colnames:
+			fibermap.rename_column("TARGET_RA", "ra")
+		if "TARGET_DEC" in fibermap.colnames:
+			fibermap.rename_column("TARGET_DEC", "dec")
+
+		# --- merge REDSHIFTS (science classification) ---
+		if "REDSHIFTS" in hd:
+			red = Table(hd["REDSHIFTS"].data)
+			# assume same length and order; copy columns except TARGETID
+			if len(red) == len(fibermap):
+				for col in red.colnames:
+					if col == "TARGETID":
+						continue
+					if col in fibermap.colnames:
+						# avoid clashes by prefixing, but this should rarely happen
+						new_name = f"red_{col}"
+						fibermap[new_name] = red[col]
+					else:
+						fibermap[col] = red[col]
+			else:
+				# safer join on TARGETID if lengths differ
+				if "TARGETID" in fibermap.colnames and "TARGETID" in red.colnames:
+					fibermap = Table.join(
+						fibermap, red, keys="TARGETID", join_type="left", table_names=["fm", "red"], uniq_col_name="{col}_{table}"
+					)
+
+		# prune to science-relevant columns
+		fibermap = prune_desi_columns(fibermap)
+
+		return fibermap
+
+	finally:
+		hd.close()
+
+
+def prune_desi_columns(tbl):
+	"""
+	Keep only science-relevant columns from a DESI DR1 coadd table.
+	All purely bookkeeping / ID columns are removed.
+	"""
+
+	keep = {
+		# 1) Sky position & astrometry
+		"TARGETID",
+		"ra", "dec", "PMRA", "PMDEC", "REF_EPOCH",
+
+		# 2) Legacy Surveys photometry (renamed)
+		"ls_flux_g", "ls_flux_r", "ls_flux_z",
+		"ls_flux_w1", "ls_flux_w2",
+		"ls_flux_ivar_g", "ls_flux_ivar_r", "ls_flux_ivar_z",
+		"ls_flux_ivar_w1", "ls_flux_ivar_w2",
+		"ls_fiberflux_g", "ls_fiberflux_r", "ls_fiberflux_z",
+		"ls_fibertotflux_g", "ls_fibertotflux_r", "ls_fibertotflux_z",
+
+		# 3) DESI coadd spectra
+		"flux_b", "ivar_b", "wave_b",
+		"flux_r", "ivar_r", "wave_r",
+		"flux_z", "ivar_z", "wave_z",
+
+		# 4) Spectroscopic results (from REDSHIFTS)
+		"SPECTYPE",      # STAR / GALAXY / QSO
+		"Z", "ZERR",
+		"ZWARN",
+		"DELTACHI2",
+
+		# 5) A bit of useful context
+		"OBJTYPE",       # BAD / SKY / TGT (can filter if you want)
+		"EBV",
+		"COADD_EXPTIME", "COADD_NUMEXP", "COADD_NUMTILE",
+		"MEAN_FIBER_RA", "MEAN_FIBER_DEC",
+		"MEAN_PSF_TO_FIBER_SPECFLUX",
+	}
+
+	keep = [c for c in keep if c in tbl.colnames]
+	drop = [c for c in tbl.colnames if c not in keep]
+	tbl.remove_columns(drop)
+
+	return tbl
+
+
+
+def _read_sdss_boss_dr19_spectrum_as_table(path):
+	"""
+	Read one SDSS/BOSS DR19 spectrum FITS and return a 1-row Astropy Table with:
+
+	- metadata from HDU 2
+	- ra / dec standardized
+	- spectral arrays from HDU 1
+	- alternative fits from HDU 3 packed as object columns
+	- line measurements from HDU 4 packed as object columns
+	"""
+	hdul = fits.open(path, memmap=True)
+
+	try:
+		# -----------------------------
+		# HDU 1: sampled spectrum
+		# -----------------------------
+		spec = hdul[1].data
+
+		flux = np.asarray(spec["FLUX"], dtype=np.float32)
+		loglam = np.asarray(spec["LOGLAM"], dtype=np.float32)
+		wave = (10.0 ** loglam).astype(np.float32)
+		ivar = np.asarray(spec["IVAR"], dtype=np.float32)
+		and_mask = np.asarray(spec["AND_MASK"])
+		or_mask = np.asarray(spec["OR_MASK"])
+		wdisp = np.asarray(spec["WDISP"], dtype=np.float32)
+		sky = np.asarray(spec["SKY"], dtype=np.float32)
+		model = np.asarray(spec["MODEL"], dtype=np.float32)
+
+		wresl = None
+		if "WRESL" in spec.names:
+			wresl = np.asarray(spec["WRESL"], dtype=np.float32)
+
+		# -----------------------------
+		# HDU 2: main metadata / best fit
+		# -----------------------------
+		meta = Table(hdul[2].data)
+
+		if len(meta) != 1:
+			raise RuntimeError(f"Expected HDU 2 to have 1 row, got {len(meta)}")
+
+		out = meta.copy()
+
+		# Standardize RA / DEC
+		if "ra" not in out.colnames:
+			if "PLUG_RA" in out.colnames:
+				out["ra"] = out["PLUG_RA"]
+			elif "FIBER_RA" in out.colnames:
+				out["ra"] = out["FIBER_RA"]
+			elif "RACAT" in out.colnames:
+				out["ra"] = out["RACAT"]
+
+		if "dec" not in out.colnames:
+			if "PLUG_DEC" in out.colnames:
+				out["dec"] = out["PLUG_DEC"]
+			elif "FIBER_DEC" in out.colnames:
+				out["dec"] = out["FIBER_DEC"]
+			elif "DECCAT" in out.colnames:
+				out["dec"] = out["DECCAT"]
+
+		# -----------------------------
+		# attach spectrum arrays
+		# -----------------------------
+		out["wave"] = Column([wave], dtype=object)
+		out["flux"] = Column([flux], dtype=object)
+		out["ivar"] = Column([ivar], dtype=object)
+		out["and_mask"] = Column([and_mask], dtype=object)
+		out["or_mask"] = Column([or_mask], dtype=object)
+		out["wdisp"] = Column([wdisp], dtype=object)
+		out["sky"] = Column([sky], dtype=object)
+		out["model"] = Column([model], dtype=object)
+
+		if wresl is not None:
+			out["wresl"] = Column([wresl], dtype=object)
+
+		# -----------------------------
+		# HDU 3: alternative fits
+		# -----------------------------
+		if len(hdul) > 3 and hdul[3].data is not None:
+			zall = Table(hdul[3].data)
+
+			for col in zall.colnames:
+				vals = zall[col]
+
+				# decode bytes columns if needed
+				if getattr(vals.dtype, "kind", None) == "S":
+					vals = np.array([x.decode("utf-8", errors="ignore").strip() for x in vals], dtype=object)
+				else:
+					vals = np.array(vals, dtype=object)
+
+				out[f"zall_{col.lower()}"] = Column([vals], dtype=object)
+
+		# -----------------------------
+		# HDU 4: line measurements
+		# -----------------------------
+		if len(hdul) > 4 and hdul[4].data is not None:
+			zline = Table(hdul[4].data)
+
+			for col in zline.colnames:
+				vals = zline[col]
+
+				# decode bytes columns if needed
+				if getattr(vals.dtype, "kind", None) == "S":
+					vals = np.array([x.decode("utf-8", errors="ignore").strip() for x in vals], dtype=object)
+				else:
+					vals = np.array(vals, dtype=object)
+
+				out[f"zline_{col.lower()}"] = Column([vals], dtype=object)
+
+		return out
+
+	finally:
+		hdul.close()

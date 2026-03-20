@@ -1,7 +1,7 @@
 import argparse
 
 from astroinject.config import load_config
-from logpool import control
+import logpool as control
 from astroinject.pipeline.apply_index import apply_pgsphere_index, apply_q3c_index, apply_btree_index
 
 def index_schema():

@@ -2,7 +2,7 @@ from astroinject.database.dbpool import PostgresConnectionManager
 from astroinject.database.gen_index_queries import make_pg_sphere_index, make_q3c_index
 from astroinject.database.gen_base_queries import vacuum_query
 
-from logpool import control 
+import logpool as control 
 
 def apply_pgsphere_index(config):
     index_query = make_pg_sphere_index(config["tablename"], config["ra_col"], config["dec_col"])
@@ -28,8 +28,8 @@ def apply_q3c_index(config):
     
     pg_conn.execute_query(index_query)
     
-    control.info(f"executing cluster")
-    pg_conn.execute_query_wt_tblock(f"""CLUSTER {config["tablename"]} USING {index_name};""")
+    # control.info(f"executing cluster")
+    # pg_conn.execute_query_wt_tblock(f"""CLUSTER {config["tablename"]} USING {index_name};""")
     
     control.info(f"executing analyze")
     pg_conn.execute_query_wt_tblock(f"""ANALYZE {config["tablename"]};""")
