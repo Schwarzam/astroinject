@@ -6,4 +6,4 @@ database:
   port: 5432
 
 general:
-  injection_processes: 15
+  injection_processes: 3

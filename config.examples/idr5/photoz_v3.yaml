@@ -1,7 +1,7 @@
 folder: "/storage/splus/Catalogues/VACs/photozs/iDR5_v3"
 pattern: "*.fits"
 
-tablename: "idr5_vacs.idr5_photoz_v3"
+tablename: "dr5_vacs.dr5_photoz_v3"
 
 force_cast_correction: False # this corrects tables that have types different from first ref table
 id_col: "id"
@@ -12,5 +12,5 @@ additional_btree_index: ["field"]
 
 rename_columns: {} # {old_name: new_name}
 delete_columns: [] # [col1, col2, ...]
-patterns_to_replace: [{"name": "ID", "pattern": "DR5", "replacement": "iDR5_3"}] # {"name": colname, "pattern": "pattern", "replacement": "replace"}
+patterns_to_replace: [{"name": "ID", "pattern": "iDR5_3", "replacement": "DR5"}] # {"name": colname, "pattern": "pattern", "replacement": "replace"}
 mask_value: null # Value to mask, should be null if already has masked values (nans)
