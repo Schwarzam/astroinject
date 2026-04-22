@@ -1,10 +1,10 @@
-folder: "/storage/splus/Catalogues/idr7_final_splus_s"
+folder: "/storage/splus/Catalogues/shorts/SS_DR2"
 pattern: "*.fits"
 
-tablename: "idr7_tests.idr7_splus_s"
+tablename: "usdr2.usdr2"
 
 force_cast_correction: False # this corrects tables that have types different from first ref table
-id_col: id
+id_col: null
 ra_col: "ra"
 dec_col: "dec"
 index_type: "q3c"
