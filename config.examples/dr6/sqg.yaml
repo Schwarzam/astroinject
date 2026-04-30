@@ -1,7 +1,8 @@
-folder: "/storage/splus/Catalogues/VACs/sqg/iDR6/09-2025/final_output"
+folder: "/home/astrodados3/splus/VACs/sqg/iDR6/09-2025/final_output"
 pattern: "*.csv"
 
-tablename: "idr6.vac_sqg"
+#tablename: "idr6.vac_sqg"
+tablename: "splus_vacs.idr6_vac_sqg"
 
 force_cast_correction: False # this corrects tables that have types different from first ref table
 id_col: "id"

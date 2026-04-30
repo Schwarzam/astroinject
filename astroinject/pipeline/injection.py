@@ -88,24 +88,22 @@ def create_table(filepath, config):
     """
     Filepath or astropy.table.Table
     """
-    try:
-        if isinstance(filepath, str):
-            table = open_table(filepath, config)
-        else:
-            table = filepath
-            filepath = "Memory file."
+    if isinstance(filepath, str):
+        table = open_table(filepath, config)
+    else:
+        table = filepath
+        filepath = "Memory file."
 
-        table = preprocess_table(table, config)
+    table = preprocess_table(table, config)
 
-        create_query = generate_create_table_query(config["tablename"], table, config["id_col"])
-        control.info(f"Creating table {config['tablename']} in the database")
-        control.info(f"Query: \n{create_query}")
+    create_query = generate_create_table_query(config["tablename"], table, config["id_col"])
+    control.info(f"Creating table {config['tablename']} in the database")
+    control.info(f"Query: \n{create_query}")
 
-        pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
-        pg_conn.execute_query(create_query)
-        pg_conn.close()
-    except Exception as e:
-        print(e)
+    pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
+    pg_conn.execute_query(create_query)
+    pg_conn.close()
+
 
 def parallel_insertion(files, config):
     """
