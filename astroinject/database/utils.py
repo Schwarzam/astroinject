@@ -33,8 +33,10 @@ def infer_pg_type(value):
             return "BOOLEAN[]"
         elif isinstance(value[0], str):
             return "TEXT[]"  # Array of strings
+        return "TEXT[]"
     else:
-        raise ValueError(f"Unsupported type: {type(value)}")
+        return "TEXT"  # Fallback para tipos desconhecidos
+        #raise ValueError(f"Unsupported type: {type(value)}")
     
 def convert_table_to_postgres_records(table):
     """Optimized conversion of an `astropy.table.Table` for PostgreSQL `COPY` bulk insert.
