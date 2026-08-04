@@ -8,11 +8,16 @@ from astroinject.database.types import build_type_map
 
 from multiprocessing import get_context
 import gc
+import time
 
 def injection_procedure(filepath, types_map, config):
+    pg_conn = None
+    records = None
+    table = None
     try:
         
         if isinstance(filepath, str):
+            control.info(f"Reading table {filepath}")
             table = open_table(filepath, config)
         else:
             table = filepath
@@ -37,41 +42,47 @@ def injection_procedure(filepath, types_map, config):
             except KeyError:
                 first_table_id = table[0][id_col.lower()]
             
-            pg_conn = PostgresConnectionManager(**config["database"])
-            
+            pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
             try:
-                constrain = f"{config['id_col']} = {int(first_table_id)}"
-            except (ValueError, TypeError):
-                constrain = f"{config['id_col']} = '{first_table_id}'"
-            
-            existing_ids = pg_conn.execute_query(f"""
-                SELECT {config['id_col']}
-                FROM {config['tablename']}
-                WHERE {constrain}
-            """, fetch=True)
-            if existing_ids:
-                control.warn(f"Row with ID {first_table_id} already exists in the database. Skipping {filepath}.")
+                try:
+                    constrain = f"{config['id_col']} = {int(first_table_id)}"
+                except (ValueError, TypeError):
+                    constrain = f"{config['id_col']} = '{first_table_id}'"
+                
+                existing_ids = pg_conn.execute_query(f"""
+                    SELECT {config['id_col']}
+                    FROM {config['tablename']}
+                    WHERE {constrain}
+                """, fetch=True)
+                if existing_ids:
+                    control.warn(f"Row with ID {first_table_id} already exists in the database. Skipping {filepath}.")
+                    
+                    try: del table
+                    except: pass
+                    try: del existing_ids
+                    except: pass
+                    
+                    gc.collect()
+                    return
+            finally:
                 pg_conn.close()
-                
-                try: del table
-                except: pass
-                try: del existing_ids
-                except: pass
-                try: del pg_conn
-                except: pass
-                
-                gc.collect()
-                return
+                pg_conn = None
         
+        control.info(f"Preprocessing table {filepath}")
         table = preprocess_table(table, config, types_map)
+        control.info(f"Converting table {filepath} to PostgreSQL records")
         records = convert_table_to_postgres_records(table)
 
         pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
+        control.info(f"Copying table {filepath} into {config['tablename']}")
         pg_conn.insert_data_copy(config["tablename"], table.columns, records)
         pg_conn.close()
+        pg_conn = None
+        control.info(f"Finished injecting table {filepath}")
 
     except Exception as e:
         control.critical(f"Error while injecting {filepath}: {e}")
+        raise
 
     finally:
         # Libera memória explicitamente
@@ -83,6 +94,14 @@ def injection_procedure(filepath, types_map, config):
         except: pass
             
         gc.collect()
+
+    return filepath
+
+
+def _run_injection_task(args):
+    filepath, types_map, config = args
+    injection_procedure(filepath, types_map, config)
+    return filepath
 
 def create_table(filepath, config):
     """
@@ -120,9 +139,46 @@ def parallel_insertion(files, config):
     # Cria lista de argumentos para starmap
     args = [(filepath, types_map, config) for filepath in files]
 
-    # Contexto spawn evita fork-related memory leaks
+    # Contexto spawn evita fork-related memory leaks. maxtasksperchild keeps
+    # FITS/Numpy memory from accumulating in long IDR runs.
     ctx = get_context("spawn")
-    with ctx.Pool(processes=config["general"]["injection_processes"]) as pool:
-        pool.starmap(injection_procedure, args)
+    total_files = len(args)
+    completed_files = 0
+    timeout_seconds = config["general"].get("injection_worker_timeout_seconds")
+    poll_seconds = config["general"].get("injection_worker_poll_seconds", 5)
+
+    with ctx.Pool(
+        processes=config["general"]["injection_processes"],
+        maxtasksperchild=config["general"].get("max_tasks_per_child", 1),
+    ) as pool:
+        pending = {
+            pool.apply_async(_run_injection_task, (arg,)): arg[0]
+            for arg in args
+        }
+        last_progress = time.monotonic()
+
+        while pending:
+            for result, filepath in list(pending.items()):
+                if not result.ready():
+                    continue
+
+                result.get()
+                completed_files += 1
+                last_progress = time.monotonic()
+                del pending[result]
+                control.info(f"Finished {completed_files}/{total_files}: {filepath}")
+
+            if not pending:
+                break
+
+            if timeout_seconds and time.monotonic() - last_progress > timeout_seconds:
+                pending_files = ", ".join(map(str, pending.values()))
+                pool.terminate()
+                raise TimeoutError(
+                    "No injection worker finished within "
+                    f"{timeout_seconds} seconds. Pending files: {pending_files}"
+                )
+
+            time.sleep(poll_seconds)
 
     control.info("✅ All files inserted in parallel!")
