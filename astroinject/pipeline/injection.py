@@ -10,6 +10,7 @@ from multiprocessing import get_context
 import gc
 import os
 from queue import Empty
+import sys
 import time
 import traceback
 
@@ -104,14 +105,20 @@ def injection_procedure(filepath, types_map, config):
 
 
 def _run_injection_process(filepath, types_map, config, result_queue):
-    if hasattr(control, "print_log"):
-        control.print_log = config["general"].get("injection_worker_print_log", False)
+    devnull = None
+    if not config["general"].get("injection_worker_print_log", False):
+        devnull = open(os.devnull, "w", encoding="utf-8")
+        sys.stdout = devnull
+        sys.stderr = devnull
 
     try:
         injection_procedure(filepath, types_map, config)
         result_queue.put(("success", os.getpid(), filepath, None))
     except Exception:
         result_queue.put(("error", os.getpid(), filepath, traceback.format_exc()))
+    finally:
+        if devnull:
+            devnull.close()
 
 
 def _write_injection_error(error_log_path, filepath, message):
@@ -208,6 +215,7 @@ def parallel_insertion(files, config):
                 if status == "error":
                     error_files += 1
                     _write_injection_error(error_log_path, filepath, message)
+                    progress.set_postfix(errors=error_files)
 
                 progress.update(1)
 
@@ -236,6 +244,7 @@ def parallel_insertion(files, config):
                             filepath,
                             f"Worker exited with code {process.exitcode} without returning a result.",
                         )
+                        progress.set_postfix(errors=error_files)
                     progress.update(1)
                     del running[pid]
                     continue
@@ -250,6 +259,7 @@ def parallel_insertion(files, config):
                         filepath,
                         f"Worker timed out after {timeout_seconds} seconds.",
                     )
+                    progress.set_postfix(errors=error_files)
                     progress.update(1)
                     del running[pid]
 
