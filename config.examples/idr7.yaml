@@ -4,7 +4,7 @@ pattern: "*.fits"
 tablename: "idr7_tests.idr7_v2"
 
 force_cast_correction: False # this corrects tables that have types different from first ref table
-id_col: null
+id_col: id
 ra_col: "ra"
 dec_col: "dec"
 index_type: "q3c"

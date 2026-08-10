@@ -6,8 +6,8 @@ database:
   port: 5432
 
 general:
-  injection_processes: 3
+  injection_processes: 1
   max_tasks_per_child: 1
   # Set this to fail instead of hanging forever when no file completes.
   # Example: 3600 means abort after 1 hour without worker progress.
-  injection_worker_timeout_seconds: null
+  injection_worker_timeout_seconds: 600
