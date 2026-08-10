@@ -14,7 +14,8 @@ dependencies = [
   "sqlalchemy",
   "pyyaml",
   "astropy",
-  "logpool"
+  "logpool",
+  "tqdm"
 ]
 
 [tool.setuptools]

@@ -11,3 +11,6 @@ general:
   # Set this to fail instead of hanging forever when no file completes.
   # Example: 3600 means abort after 1 hour without worker progress.
   injection_worker_timeout_seconds: 600
+
+  injection_error_log: injection_error.log
+  injection_worker_print_log: false
