@@ -7,6 +7,7 @@ from astroinject.utils import find_files_with_pattern
 from astroinject.config import load_config
 
 from astroinject.pipeline.map_tap_schema import map_table
+from astroinject.pipeline.tablespaces import move_table_indexes
 
 import warnings
 import logpool as control
@@ -99,6 +100,36 @@ def create_index_command():
         apply_q3c_index(config)
     elif args.index_type == "btree":
         apply_btree_index(config)
+
+
+def move_indexes_tablespace_command():
+    """Move all indexes for a configured table to ``tablespaces.index``."""
+    parser = argparse.ArgumentParser(
+        description="Move all indexes of a table to the configured PostgreSQL index tablespace."
+    )
+    parser.add_argument("-b", "--baseconfig", required=True, help="Base database config file")
+    parser.add_argument("-c", "--tableconfig", help="Table config file with tablename and tablespaces")
+    parser.add_argument(
+        "-st", "--schema-table", dest="schema_table",
+        help="Override the configured table (format: schema.table)",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="Print ALTER INDEX statements only")
+    args = parser.parse_args()
+
+    if not args.tableconfig and not args.schema_table:
+        parser.error("provide --tableconfig or --schema-table to select a table")
+
+    config = load_config(args.baseconfig)
+    if args.tableconfig:
+        config.update(load_config(args.tableconfig))
+
+    statements = move_table_indexes(
+        config, table_name=args.schema_table, dry_run=args.dry_run
+    )
+    if args.dry_run:
+        control.info(f"would move {len(statements)} index(es).")
+    else:
+        control.info(f"moved {len(statements)} index(es).")
     
 
 def execute_query_command():

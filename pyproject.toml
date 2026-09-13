@@ -27,6 +27,7 @@ map_table     = "astroinject.main:map_table_command"
 create_index  = "astroinject.main:create_index_command"
 execute_query = "astroinject.main:execute_query_command"
 create_schema = "astroinject.main:create_schema_command"
+move_indexes_tablespace = "astroinject.main:move_indexes_tablespace_command"
 index_schema = "astroinject.pipeline.commands:index_schema"
 vacuum_schema = "astroinject.pipeline.commands:vacuum_schema"
 

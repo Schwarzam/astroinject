@@ -24,17 +24,21 @@ def get_tablespace(config, object_type):
     return tablespace
 
 
+def quote_identifier(identifier):
+    """Return an SQL-safe PostgreSQL identifier."""
+    if not isinstance(identifier, str) or not identifier:
+        raise ValueError("identifiers must be non-empty strings")
+
+    # PostgreSQL identifiers cannot be query parameters. Preserve ordinary
+    # names in the readable form users expect, and quote all other valid names.
+    if _UNQUOTED_IDENTIFIER.fullmatch(identifier):
+        return identifier
+    else:
+        return '"' + identifier.replace('"', '""') + '"'
+
+
 def tablespace_clause(tablespace):
     """Build a safe SQL ``TABLESPACE`` clause, or an empty string."""
     if tablespace is None:
         return ""
-    if not tablespace:
-        raise ValueError("tablespace names cannot be empty")
-
-    # PostgreSQL identifiers cannot be query parameters. Preserve ordinary
-    # names in the readable form users expect, and quote all other valid names.
-    if _UNQUOTED_IDENTIFIER.fullmatch(tablespace):
-        identifier = tablespace
-    else:
-        identifier = '"' + tablespace.replace('"', '""') + '"'
-    return f" TABLESPACE {identifier}"
+    return f" TABLESPACE {quote_identifier(tablespace)}"

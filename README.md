@@ -95,6 +95,17 @@ tablespaces:
 Omit either key (or the entire `tablespaces` mapping) to use PostgreSQL's
 default tablespace for that object type.
 
+To relocate every existing index of a table (including primary-key and unique
+indexes) to `tablespaces.index`, run:
+
+```bash
+move_indexes_tablespace -b config.examples/idr5/base.yaml -c my_table.yaml
+```
+
+Use `--dry-run` to print the `ALTER INDEX ... SET TABLESPACE` statements
+without executing them, or `-st schema.table` to override `tablename` from the
+configuration.
+
 ### Backup and restore
 
 It's possible to create backups with astroinject. 
