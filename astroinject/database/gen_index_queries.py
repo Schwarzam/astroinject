@@ -1,18 +1,20 @@
 
-def make_pg_sphere_index(table, ra_col, dec_col):
+from astroinject.database.tablespaces import tablespace_clause
+
+
+def make_pg_sphere_index(table, ra_col, dec_col, tablespace=None):
     #ra_col = ra_col.lower()
     #dec_col = dec_col.lower()
     
-    if "." in table:
-        wtdtable = table.split(".")[1]
+    wtdtable = table.split(".")[-1]
     index_name = f"{wtdtable}_{ra_col}_{dec_col}_pgsphere_idx"
     
     query = f"""CREATE INDEX {index_name} 
-    ON {table} USING gist (spoint(radians("{ra_col}"), radians("{dec_col}")));"""
+    ON {table} USING gist (spoint(radians("{ra_col}"), radians("{dec_col}"))){tablespace_clause(tablespace)};"""
   
     return query
 
-def make_q3c_index(table, ra_col, dec_col):
+def make_q3c_index(table, ra_col, dec_col, tablespace=None):
     #ra_col = ra_col.lower()
     #dec_col = dec_col.lower()
 
@@ -24,7 +26,7 @@ def make_q3c_index(table, ra_col, dec_col):
     index_name = f"{wtdtable}_{ra_col}_{dec_col}_q3c_idx"
 
     query = f"""CREATE INDEX {index_name} 
-    ON {table} (q3c_ang2ipix("{ra_col}", "{dec_col}"));
+    ON {table} (q3c_ang2ipix("{ra_col}", "{dec_col}")){tablespace_clause(tablespace)};
     """
 
     return query, index_name

@@ -3,6 +3,7 @@ from astroinject.io import open_table
 from astroinject.processing import preprocess_table
 from astroinject.database.utils import convert_table_to_postgres_records
 from astroinject.database.gen_base_queries import generate_create_table_query
+from astroinject.database.tablespaces import get_tablespace
 from astroinject.database.dbpool import PostgresConnectionManager
 from astroinject.database.types import build_type_map
 
@@ -143,7 +144,13 @@ def create_table(filepath, config):
 
     table = preprocess_table(table, config)
 
-    create_query = generate_create_table_query(config["tablename"], table, config["id_col"])
+    create_query = generate_create_table_query(
+        config["tablename"],
+        table,
+        config.get("id_col"),
+        table_tablespace=get_tablespace(config, "table"),
+        index_tablespace=get_tablespace(config, "index"),
+    )
     control.info(f"Creating table {config['tablename']} in the database")
     control.info(f"Query: \n{create_query}")
 

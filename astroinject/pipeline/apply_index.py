@@ -1,11 +1,15 @@
 from astroinject.database.dbpool import PostgresConnectionManager
 from astroinject.database.gen_index_queries import make_pg_sphere_index, make_q3c_index
 from astroinject.database.gen_base_queries import vacuum_query
+from astroinject.database.tablespaces import get_tablespace, tablespace_clause
 
 import logpool as control 
 
 def apply_pgsphere_index(config):
-    index_query = make_pg_sphere_index(config["tablename"], config["ra_col"], config["dec_col"])
+    index_query = make_pg_sphere_index(
+        config["tablename"], config["ra_col"], config["dec_col"],
+        get_tablespace(config, "index"),
+    )
     vacuum_q = vacuum_query(config["tablename"])
     
     pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
@@ -20,7 +24,10 @@ def apply_pgsphere_index(config):
     control.info("done applying indexes.")
     
 def apply_q3c_index(config):
-    index_query, index_name = make_q3c_index(config["tablename"], config["ra_col"], config["dec_col"])
+    index_query, index_name = make_q3c_index(
+        config["tablename"], config["ra_col"], config["dec_col"],
+        get_tablespace(config, "index"),
+    )
     #vacuum_q = vacuum_query(config["tablename"])
     
     pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
@@ -53,7 +60,11 @@ def apply_btree_index(config):
             control.warn(f"Column {col} not found in table {config['tablename']}. Skipping B-Tree index creation.")
             continue
         
-        index_query = f"CREATE INDEX IF NOT EXISTS {config['tablename'].replace('.', '_')}_{col}_btree ON {config['tablename']} USING btree ({col});"
+        index_query = (
+            f"CREATE INDEX IF NOT EXISTS {config['tablename'].replace('.', '_')}_{col}_btree "
+            f"ON {config['tablename']} USING btree ({col})"
+            f"{tablespace_clause(get_tablespace(config, 'index'))};"
+        )
         vacuum_q = vacuum_query(config["tablename"])
         
         pg_conn = PostgresConnectionManager(use_pool=False, **config["database"])
@@ -63,4 +74,3 @@ def apply_btree_index(config):
         pg_conn.execute_query_wt_tblock(vacuum_q)
         pg_conn.close()
         control.info("done applying B-Tree indexes.")
-    

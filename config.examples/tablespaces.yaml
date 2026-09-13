@@ -1,0 +1,5 @@
+# Add this mapping to a table configuration to separate table data from indexes.
+# Both tablespaces must be created by a PostgreSQL administrator beforehand.
+tablespaces:
+  table: pg_default
+  index: storage

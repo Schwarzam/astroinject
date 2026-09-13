@@ -79,6 +79,22 @@ astroinject -u {user} -p {password} -C {config_file}
 
 There are some examples of config files in the `config.examples/` directory.
 
+### PostgreSQL tablespaces
+
+Optionally set separate PostgreSQL tablespaces for the table data and indexes.
+The tablespaces must already exist and the database user must have permission to
+use them. The `index` setting is used for spatial and additional B-tree indexes,
+as well as the primary-key index created with `id_col`.
+
+```yaml
+tablespaces:
+  table: pg_default
+  index: storage
+```
+
+Omit either key (or the entire `tablespaces` mapping) to use PostgreSQL's
+default tablespace for that object type.
+
 ### Backup and restore
 
 It's possible to create backups with astroinject. 
