@@ -8,6 +8,7 @@ from astroinject.database.tablespaces import tablespace_clause
 def generate_create_table_query(table_name, table, id_col=None, table_tablespace=None,
                                 index_tablespace=None):
     columns_definitions = []
+    primary_key_column = None
     
     for col in table.colnames:
         sample_value = table[col][first_valid_index(table[col])]  # Take first row as a sample
@@ -15,12 +16,18 @@ def generate_create_table_query(table_name, table, id_col=None, table_tablespace
         pg_type = infer_pg_type(sample_value)
         
         if id_col and id_col.lower() == col.lower():  # Ensure 'id' is the primary key
-            primary_key_tablespace = tablespace_clause(index_tablespace)
-            columns_definitions.append(
-                f"{col} {pg_type} PRIMARY KEY USING INDEX{primary_key_tablespace}"
-            )
+            # ``USING INDEX`` is valid only on a table-level PRIMARY KEY
+            # constraint, not on an inline column constraint.
+            columns_definitions.append(f"{col} {pg_type} NOT NULL")
+            primary_key_column = col
         else:
             columns_definitions.append(f"{col} {pg_type} NULL")
+
+    if primary_key_column:
+        primary_key = f"PRIMARY KEY ({primary_key_column})"
+        if index_tablespace is not None:
+            primary_key += f" USING INDEX{tablespace_clause(index_tablespace)}"
+        columns_definitions.append(primary_key)
 
     columns_str = ",\n    ".join(columns_definitions)
     create_table_query = (
