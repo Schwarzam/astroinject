@@ -57,7 +57,7 @@ def index_schema():
                         help="If table has no PRIMARY KEY but has a NOT NULL 'id' column, make it the PK via a CONCURRENT unique index.")
     parser.add_argument("--drop_only", action="store_true",
                         help="ONLY drop existing spatial indexes; do NOT recreate; ignores --ensure_pk.")
-    parser.add_argument("--dry_run", action="store_true",
+    parser.add_argument("--dry_run", "--dry-run", dest="dry_run", action="store_true",
                         help="Print intended actions without executing any DDL.")
     args = parser.parse_args()
 
@@ -432,7 +432,7 @@ def index_schema():
     
 def vacuum_schema():
     """
-    VACUUM ANALYZE all tables in a schema.
+    VACUUM ANALYZE all tables in a schema, optionally using parallel sessions.
 
     Examples:
       # vacuum analyze all tables in a schema
@@ -443,13 +443,19 @@ def vacuum_schema():
 
       # include partitioned tables
       astroinject vacuum_schema -b base.yaml -s cat --include_partitions
+
+      # use four independent PostgreSQL sessions for production maintenance
+      astroinject vacuum_schema -b base.yaml -s cat --jobs 4
+
+      # refresh planner statistics only (does not vacuum dead tuples/indexes)
+      astroinject vacuum_schema -b base.yaml -s cat --analyze-only --jobs 4
     """
     import sys
     import psycopg2
     from psycopg2 import sql
 
     parser = argparse.ArgumentParser(
-        description="VACUUM ANALYZE all tables in a schema.",
+        description="VACUUM ANALYZE all tables in a schema, optionally in parallel.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -458,11 +464,19 @@ def vacuum_schema():
     parser.add_argument("--name_like", help="SQL LIKE filter for table names")
     parser.add_argument("--include_partitions", action="store_true",
                         help="Also consider partitioned tables (relkind='p').")
-    parser.add_argument("--dry_run", action="store_true",
+    parser.add_argument("-j", "--jobs", type=int,
+                        help="Number of independent maintenance sessions; overrides general.maintenance_jobs.")
+    parser.add_argument("--analyze-only", action="store_true",
+                        help="Run ANALYZE instead of VACUUM ANALYZE. This does not maintain indexes.")
+    parser.add_argument("--dry_run", "--dry-run", dest="dry_run", action="store_true",
                         help="Print intended actions without executing any DDL.")
     args = parser.parse_args()
 
     base_config = load_config(args.baseconfig)
+    if args.jobs is None:
+        args.jobs = base_config.get("general", {}).get("maintenance_jobs", 1)
+    if not isinstance(args.jobs, int) or args.jobs < 1:
+        parser.error("--jobs or general.maintenance_jobs must be an integer of at least 1")
 
     # connect
     cfg = base_config.get("database", base_config)
@@ -509,25 +523,72 @@ def vacuum_schema():
         
     control.info(
         f"Target: {args.schema} ; count={len(tables)} ; "
-        f"options: include_partitions={args.include_partitions}, dry_run={args.dry_run}"
+        f"options: include_partitions={args.include_partitions}, jobs={args.jobs}, "
+        f"analyze_only={args.analyze_only}, dry_run={args.dry_run}"
     )
-    vacuumed=failed=0
-    for i, tbl in enumerate(tables, start=1):
+
+    operation = "ANALYZE" if args.analyze_only else "VACUUM ANALYZE"
+    if args.dry_run:
+        for tbl in tables:
+            control.info(f"[dry-run] would {operation} {args.schema}.{tbl}")
+        conn.close()
+        return
+
+    def maintain_table(table_name):
+        """Use a dedicated connection: VACUUM cannot share one concurrently."""
+        worker_conn = None
         try:
-            if args.dry_run:
-                control.info(f"[dry-run] would VACUUM ANALYZE {args.schema}.{tbl}")
+            if "dsn" in cfg:
+                worker_conn = psycopg2.connect(cfg["dsn"])
             else:
-                control.info(f"[{i}] VACUUM ANALYZE {args.schema}.{tbl}")
-                with conn.cursor() as cur:
-                    cur.execute(
-                        sql.SQL("VACUUM ANALYZE {}.{}").format(
-                            sql.Identifier(args.schema),
-                            sql.Identifier(tbl),
-                        )
+                worker_conn = psycopg2.connect(
+                    host=cfg.get("host"),
+                    port=cfg.get("port"),
+                    dbname=cfg.get("dbname"),
+                    user=cfg.get("user"),
+                    password=cfg.get("password"),
+                )
+            worker_conn.autocommit = True
+            with worker_conn.cursor() as cur:
+                if args.analyze_only:
+                    statement = sql.SQL("ANALYZE {}.{}").format(
+                        sql.Identifier(args.schema), sql.Identifier(table_name)
                     )
-                vacuumed += 1
+                else:
+                    statement = sql.SQL("VACUUM ANALYZE {}.{}").format(
+                        sql.Identifier(args.schema), sql.Identifier(table_name)
+                    )
+                cur.execute(statement)
+            return table_name, None
         except Exception as e:
-            failed += 1
-            control.info(f"[{i}] {args.schema}.{tbl}: failed with error: {e}")
-    control.info(f"Vacuumed: {vacuumed}, Failed: {failed}")
+            return table_name, e
+        finally:
+            if worker_conn is not None:
+                worker_conn.close()
+
     conn.close()
+    if args.jobs == 1:
+        results = []
+        for table_name in tables:
+            control.info(f"{operation} {args.schema}.{table_name}")
+            results.append(maintain_table(table_name))
+    else:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        control.info(f"Starting up to {args.jobs} parallel {operation} sessions.")
+        with ThreadPoolExecutor(max_workers=args.jobs) as executor:
+            futures = {executor.submit(maintain_table, table_name): table_name for table_name in tables}
+            results = []
+            for future in as_completed(futures):
+                results.append(future.result())
+
+    maintained = 0
+    failed = 0
+    for table_name, error in results:
+        if error is None:
+            maintained += 1
+            control.info(f"{args.schema}.{table_name}: {operation} complete.")
+        else:
+            failed += 1
+            control.info(f"{args.schema}.{table_name}: failed with error: {error}")
+    control.info(f"{operation} complete: {maintained}, Failed: {failed}")
